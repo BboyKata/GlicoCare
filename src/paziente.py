@@ -85,6 +85,26 @@ class Paziente:
         finally:
             conn.close()
 
+    def _refresh_rilevazioni(self):
+        """
+        Aggiorna la lista interna delle rilevazioni dopo una modifica.
+        """
+        conn = sqlite3.connect(self._db_path)
+        cursor = conn.cursor()
+        try:
+            query = """
+            SELECT giorno, ora, glicemia, primaDopoPasto
+            FROM RILEVAZ_GIORN
+            WHERE id_paz = ?
+            ORDER BY giorno DESC, ora DESC
+            """
+            cursor.execute(query, (self._id_ref,))
+            self._rilevazioni = cursor.fetchall()
+        except sqlite3.Error as e:
+            print(f"Errore refresh rilevazioni: {e}")
+        finally:
+            conn.close()
+
     # ==========================================================
     # METODI GETTER (Stile classico getAttributo)
     # ==========================================================
@@ -182,8 +202,71 @@ class Paziente:
             cursor.execute(query, (self._id_ref, giorno, ora, glicemia, primaDopoPasto))
             conn.commit()
             print("Rilevazione aggiunta con successo.")
+            
+            # Aggiorna la lista interna per la UI
+            self._refresh_rilevazioni()
+            
         except sqlite3.Error as e:
             print(f"Errore nell'aggiunta della rilevazione: {e}")
+        finally:
+            conn.close()
+
+    def aggiornaRilevazioneGiornaliera(self, vecchio_giorno, vecchia_ora, nuovo_giorno, nuova_ora, glicemia, primaDopoPasto):
+        """
+        Aggiorna una rilevazione esistente. Se data/ora sono cambiate, le modifica.
+        
+        Args:
+            vecchio_giorno (str): Data originale nel formato 'YYYY-MM-DD'.
+            vecchia_ora (str): Ora originale nel formato 'HH:MM'.
+            nuovo_giorno (str): Nuova data nel formato 'YYYY-MM-DD'.
+            nuova_ora (str): Nuova ora nel formato 'HH:MM'.
+            glicemia (float): Nuovo valore della glicemia.
+            primaDopoPasto (str): 'P' o 'D'.
+        """
+        conn = sqlite3.connect(self._db_path)
+        cursor = conn.cursor()
+        try:
+            query = """
+            UPDATE RILEVAZ_GIORN
+            SET giorno = ?, ora = ?, glicemia = ?, primaDopoPasto = ?
+            WHERE id_paz = ? AND giorno = ? AND ora = ?
+            """
+            cursor.execute(query, (nuovo_giorno, nuova_ora, glicemia, primaDopoPasto, self._id_ref, vecchio_giorno, vecchia_ora))
+            conn.commit()
+            print("Rilevazione aggiornata con successo.")
+            
+            # Aggiorna la lista interna per la UI
+            self._refresh_rilevazioni()
+            
+        except sqlite3.Error as e:
+            print(f"Errore nell'aggiornamento della rilevazione: {e}")
+        finally:
+            conn.close()
+
+    def eliminaRilevazioneGiornaliera(self, giorno, ora):
+        """
+        Elimina una rilevazione della glicemia.
+
+        Args:
+            giorno (str): Data nel formato 'YYYY-MM-DD'.
+            ora (str): Ora nel formato 'HH:MM'.
+        """
+        conn = sqlite3.connect(self._db_path)
+        cursor = conn.cursor()
+        try:
+            query = """
+            DELETE FROM RILEVAZ_GIORN
+            WHERE id_paz = ? AND giorno = ? AND ora = ?
+            """
+            cursor.execute(query, (self._id_ref, giorno, ora))
+            conn.commit()
+            print("Rilevazione eliminata con successo.")
+            
+            # Aggiorna la lista interna per la UI
+            self._refresh_rilevazioni()
+            
+        except sqlite3.Error as e:
+            print(f"Errore nell'eliminazione della rilevazione: {e}")
         finally:
             conn.close()
 
