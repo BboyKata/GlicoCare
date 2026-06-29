@@ -89,16 +89,3 @@ CREATE INDEX IF NOT EXISTS idx_terapia_medico ON TERAPIA(id_med);
 CREATE INDEX IF NOT EXISTS idx_rilevaz_data ON RILEVAZ_GIORN(giorno);
 CREATE INDEX IF NOT EXISTS idx_sintomo_data ON SINTOMO(giorno);
 CREATE INDEX IF NOT EXISTS idx_assunzione_data ON ASSUNZIONE(giorno);
-
--- INSERIMENTO DATI DI ESEMPIO
-
--- Medico
-INSERT OR IGNORE INTO ANAGRAFICA (CF, nome, cognome, sesso, dataNascita, luogoNascita, email)
-VALUES ('RSSMRA80A01H501Z', 'Mario', 'Rossi', 'M', '1980-01-01', 'Roma', 'mario.rossi@email.com');
-
-INSERT OR IGNORE INTO MEDICO (CF)
-VALUES ('RSSMRA80A01H501Z');
-
-INSERT OR IGNORE INTO USER (username, password, tipo, id_ref)
-VALUES ('dott.rossi', '5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8', 'M', 1);
--- password: password
