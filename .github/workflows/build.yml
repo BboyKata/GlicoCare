@@ -30,24 +30,25 @@ jobs:
       if: matrix.os == 'ubuntu-latest'
       run: |
         flet pack main.py --name "GlicoCare" --icon "img/glicocare.png" --add-data "database/schema.sql:database" --add-data "database/popola_test.sql:database"
-        # Rinomina il file .tar.gz generato in un nome standard che possiamo trovare
-        mv dist/*.tar.gz dist/GlicoCare-Linux.tar.gz
+        # Su Linux, flet pack genera un eseguibile singolo chiamato GlicoCare dentro dist/.
+        # Non dobbiamo cercare file .tar.gz, carichiamo direttamente l'eseguibile.
 
     - name: Build with Flet Pack (Windows)
       if: matrix.os == 'windows-latest'
       run: |
         flet pack main.py --name "GlicoCare" --icon "img/glicocare.png" --add-data "database/schema.sql;database" --add-data "database/popola_test.sql;database"
+        # Su Windows genererà automaticamente un file GlicoCare.exe
 
     - name: Upload artifact (Linux)
       if: matrix.os == 'ubuntu-latest'
       uses: actions/upload-artifact@v4
       with:
         name: GlicoCare-Linux
-        path: dist/GlicoCare-Linux.tar.gz
+        path: dist/GlicoCare
 
     - name: Upload artifact (Windows)
       if: matrix.os == 'windows-latest'
       uses: actions/upload-artifact@v4
       with:
         name: GlicoCare-Windows
-        path: dist/*.exe
+        path: dist/GlicoCare.exe
