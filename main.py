@@ -3,24 +3,24 @@ GlicoCare - Applicazione Desktop per il Monitoraggio della Glicemia.
 """
 
 import flet as ft
-import os,sys
+import os
+import sys
+import base64
 from ui.dashboard_medico import show_doctor_dashboard
 from src.user import User, CredenzialiNonValide
 from ui.dashboard_paziente import show_patient_dashboard
-from ui.dashboard_medico import show_doctor_dashboard
 
 db = os.path.join("database", "glicocare.db")
+
 
 def init_database():
     import sqlite3
     import sys
     
-    # Determina il percorso base (funziona sia in sviluppo che compilato)
+    # Determina il percorso base
     if getattr(sys, 'frozen', False):
-        # Eseguito come exe (PyInstaller)
         base_path = sys._MEIPASS
     else:
-        # Eseguito come script Python
         base_path = os.path.dirname(os.path.abspath(__file__))
     
     os.makedirs("database", exist_ok=True)
@@ -28,12 +28,10 @@ def init_database():
     cursor = conn.cursor()
     cursor.execute("PRAGMA foreign_keys = ON")
     
-    # Leggi schema.sql dal percorso corretto
     schema_path = os.path.join(base_path, "database", "schema.sql")
     with open(schema_path, "r") as f:
         cursor.executescript(f.read())
     
-    # Controlla se il database è vuoto (primo avvio)
     cursor.execute("SELECT COUNT(*) FROM PAZIENTE")
     if cursor.fetchone()[0] == 0:
         popola_path = os.path.join(base_path, "database", "popola_test.sql")
@@ -45,6 +43,7 @@ def init_database():
     
     conn.commit()
     conn.close()
+
 
 def handle_login(e: ft.ControlEvent):
     global username_field, password_field, error_label
@@ -99,23 +98,21 @@ def show_login_page(page: ft.Page):
     page.padding = 0
     page.theme_mode = ft.ThemeMode.LIGHT
 
-    # --- QUI LE IMPOSTAZIONI DELLA FINESTRA ---
-    # page.window.width = 1100   # <-- Rimuovi (o commenta) queste righe
-    # page.window.height = 700   # <-- Rimuovi (o commenta) queste righe
     page.window.resizable = True
-    page.window.maximized = True  # <-- AGGIUNGI QUESTA RIGA
-    # --------------------------------------------
+    page.window.maximized = True
     
+    # Determiniamo il percorso base
     if getattr(sys, 'frozen', False):
-        # Se siamo nell'eseguibile compilato, usa sys._MEIPASS
         base_path = sys._MEIPASS
     else:
-        # Se siamo in sviluppo, usa il percorso normale
         base_path = os.path.dirname(os.path.abspath(__file__))
 
+    # === FIX DEFINITIVO: NON USARE BASE64, USA IL PERCORSO ===
     logo_path = os.path.join(base_path, "img", "glicocare.png")
+    
     left_col = ft.Container(
         content=ft.Column([
+            # NON usare src_base64. Usa il percorso diretto.
             ft.Image(src=logo_path, width=320, height=320),
             ft.Text("Il tuo compagno per il\ncontrollo della glicemia", size=24, weight=ft.FontWeight.BOLD, text_align=ft.TextAlign.CENTER, color="#1e293b"),
             ft.Text("Monitoraggio semplice e sicuro", size=14, color="#475569", text_align=ft.TextAlign.CENTER)
