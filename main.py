@@ -13,20 +13,31 @@ db = os.path.join("database", "glicocare.db")
 
 def init_database():
     import sqlite3
+    import sys
+    
+    # Determina il percorso base (funziona sia in sviluppo che compilato)
+    if getattr(sys, 'frozen', False):
+        # Eseguito come exe (PyInstaller)
+        base_path = sys._MEIPASS
+    else:
+        # Eseguito come script Python
+        base_path = os.path.dirname(os.path.abspath(__file__))
+    
     os.makedirs("database", exist_ok=True)
     conn = sqlite3.connect(db)
     cursor = conn.cursor()
     cursor.execute("PRAGMA foreign_keys = ON")
     
-    # Crea le tabelle se non esistono
-    with open("database/schema.sql", "r") as f:
+    # Leggi schema.sql dal percorso corretto
+    schema_path = os.path.join(base_path, "database", "schema.sql")
+    with open(schema_path, "r") as f:
         cursor.executescript(f.read())
     
     # Controlla se il database è vuoto (primo avvio)
     cursor.execute("SELECT COUNT(*) FROM PAZIENTE")
     if cursor.fetchone()[0] == 0:
-        # Popola solo se è la prima volta
-        with open("database/popola_test.sql", "r") as f:
+        popola_path = os.path.join(base_path, "database", "popola_test.sql")
+        with open(popola_path, "r") as f:
             cursor.executescript(f.read())
         print("Database popolato con dati di test.")
     else:
