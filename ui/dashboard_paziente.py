@@ -115,7 +115,7 @@ def show_patient_dashboard(page: ft.Page, user: User):
                     width=340, height=65, bgcolor="#f59e0b", border_radius=12,
                     alignment=ft.alignment.center, padding=10,
                     on_click=lambda e: show_sintomi_page(page, user),
-                    content=ft.Text("Segnala sintomi", size=16, color="white", 
+                    content=ft.Text("Aggiungi segnalazione", size=16, color="white", 
                                    weight=ft.FontWeight.BOLD, text_align=ft.TextAlign.CENTER)
                 ),
                 ft.Container(height=12),

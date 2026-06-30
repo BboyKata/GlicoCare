@@ -121,6 +121,7 @@ def show_login_page(page: ft.Page):
 
 
 def main(page: ft.Page):
+    page.window.maximized = True
     show_login_page(page)
 
 

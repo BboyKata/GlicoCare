@@ -17,6 +17,9 @@ def show_registrazione_page(page: ft.Page, user):
     rilevazioni_originali = paziente.getRilevazioni()
     rilevazioni_list = [{'giorno': g, 'ora': o, 'glicemia': gli, 'pasto': p} 
                         for g, o, gli, p in rilevazioni_originali]
+    # Ordina dal più recente al meno recente
+    rilevazioni_list.sort(key=lambda x: (x['giorno'], x['ora']), reverse=True)
+    
     indice_modifica = -1
     
     input_data = ft.TextField(label="Data", hint_text="dd-mm-yyyy", width=180, text_size=15)
@@ -29,38 +32,71 @@ def show_registrazione_page(page: ft.Page, user):
 
     def apri_date_picker(e):
         def on_change(e):
-            input_data.value = date_picker.value.strftime("%d-%m-%Y")
+            input_data.value = e.control.value.strftime("%d-%m-%Y")
             input_data.update()
         page.open(ft.DatePicker(on_change=on_change))
 
     def apri_time_picker(e):
         def on_change(e):
-            input_ora.value = f"{time_picker.value.hour:02d}:{time_picker.value.minute:02d}"
+            input_ora.value = f"{e.control.value.hour:02d}:{e.control.value.minute:02d}"
             input_ora.update()
         page.open(ft.TimePicker(on_change=on_change))
-
-    # === POPUP CON SINTASSI UNIFICATA ===
+        
+    # === POPUP ===
     def popup_ok(msg, ricarica=True):
+        def chiudi(e):
+            page.close(dialog)
+            if ricarica:
+                show_registrazione_page(page, user)
         dialog = ft.AlertDialog(
             title=ft.Text("✅ Operazione completata", color="#10b981"),
             content=ft.Text(msg, size=15),
-            actions=[
-                ft.TextButton("Ok", on_click=lambda e: page.close(dialog) or (show_registrazione_page(page, user) if ricarica else None))
-            ]
+            actions=[ft.TextButton("Ok", on_click=chiudi)]
         )
         page.open(dialog)
 
     def popup_err(msg):
+        def chiudi(e):
+            page.close(dialog)
         dialog = ft.AlertDialog(
             title=ft.Text("⚠️ Errore", color="#ef4444"),
             content=ft.Text(msg, size=15),
+            actions=[ft.TextButton("Ok", on_click=chiudi)]
+        )
+        page.open(dialog)
+
+    def popup_conferma_elimina(idx):
+        r = rilevazioni_list[idx]
+        try:
+            dv = datetime.strptime(r['giorno'], "%Y-%m-%d").strftime("%d-%m-%Y")
+        except:
+            dv = r['giorno']
+
+        def elimina(e):
+            page.close(dialog)
+            try:
+                paziente.eliminaRilevazioneGiornaliera(r['giorno'], r['ora'])
+                popup_ok("Rilevazione eliminata con successo!")
+            except Exception as ex:
+                popup_err(str(ex))
+
+        dialog = ft.AlertDialog(
+            title=ft.Text("🗑️ Elimina Rilevazione", color="#ef4444"),
+            content=ft.Text(
+                f"Sei sicuro di voler eliminare la rilevazione del\n"
+                f"{dv} alle {r['ora']}?\n"
+                f"Glicemia: {r['glicemia']} mg/dL\n\n"
+                f"Questa azione è irreversibile.",
+                size=15
+            ),
             actions=[
-                ft.TextButton("Ok", on_click=lambda e: page.close(dialog))
+                ft.TextButton("Elimina", on_click=elimina, style=ft.ButtonStyle(color="#ef4444")),
+                ft.TextButton("Annulla", on_click=lambda e: page.close(dialog))
             ]
         )
         page.open(dialog)
 
-    def popup_conferma(index, nuova_data_ymd, nuova_ora):
+    def popup_conferma_modifica(index, nuova_data_ymd, nuova_ora):
         def aggiungi(e):
             page.close(dialog)
             try:
@@ -114,12 +150,9 @@ def show_registrazione_page(page: ft.Page, user):
             popup_err("Tutti i campi devono essere compilati.")
             return
 
-        # --- VALIDAZIONE DATA (Incluso blocco date future) ---
         try:
             data_obj = datetime.strptime(input_data.value, "%d-%m-%Y")
             nuova_data = data_obj.strftime("%Y-%m-%d")
-            
-            # VINCOLO: Blocca le date future
             if data_obj.date() > datetime.now().date():
                 popup_err("Non puoi inserire una rilevazione per una data futura!")
                 return
@@ -127,14 +160,12 @@ def show_registrazione_page(page: ft.Page, user):
             popup_err("Data non valida. Usa il formato dd-mm-yyyy.")
             return
 
-        # --- VALIDAZIONE ORA ---
         try:
             nuova_ora = datetime.strptime(input_ora.value, "%H:%M").strftime("%H:%M")
         except ValueError:
             popup_err("Ora non valida. Usa il formato HH:MM.")
             return
 
-        # --- VALIDAZIONE GLICEMIA ---
         try:
             glicemia_val = float(input_glicemia.value)
             if glicemia_val <= 0:
@@ -144,7 +175,6 @@ def show_registrazione_page(page: ft.Page, user):
             popup_err("La glicemia deve essere un numero valido.")
             return
 
-        # --- SALVATAGGIO ---
         if indice_modifica == -1:
             try:
                 paziente.aggiungiRilevazioneGiornaliera(nuova_data, nuova_ora, glicemia_val, input_pasto.value)
@@ -154,7 +184,7 @@ def show_registrazione_page(page: ft.Page, user):
         else:
             v = rilevazioni_list[indice_modifica]
             if nuova_data != v['giorno'] or nuova_ora != v['ora']:
-                popup_conferma(indice_modifica, nuova_data, nuova_ora)
+                popup_conferma_modifica(indice_modifica, nuova_data, nuova_ora)
             else:
                 try:
                     paziente.aggiornaRilevazioneGiornaliera(v['giorno'], v['ora'], nuova_data, nuova_ora, glicemia_val, input_pasto.value)
@@ -172,13 +202,19 @@ def show_registrazione_page(page: ft.Page, user):
         items.append(
             ft.Container(
                 padding=15, bgcolor="white", border_radius=12, margin=ft.margin.only(bottom=10),
+                shadow=ft.BoxShadow(blur_radius=8, color="rgba(0,0,0,0.05)"),
                 content=ft.Row([
                     ft.Column([
                         ft.Text(f"{dv} - {r['ora']}", weight=ft.FontWeight.BOLD, size=15, color="#1e293b"),
                         ft.Text(f"Glicemia: {r['glicemia']} mg/dL ({'Prima' if r['pasto']=='P' else 'Dopo'} pasto)", 
                                size=14, color="#475569")
                     ], expand=True),
-                    ft.IconButton(icon=ft.Icons.EDIT, icon_color="#2563eb", on_click=lambda e, i=idx: carica_modifica(i))
+                    ft.IconButton(icon=ft.Icons.EDIT, icon_color="#2563eb",
+                                  tooltip="Modifica",
+                                  on_click=lambda e, i=idx: carica_modifica(i)),
+                    ft.IconButton(icon=ft.Icons.DELETE, icon_color="#ef4444",
+                                  tooltip="Elimina",
+                                  on_click=lambda e, i=idx: popup_conferma_elimina(i))
                 ])
             )
         )

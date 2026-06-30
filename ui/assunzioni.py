@@ -29,19 +29,69 @@ def show_assunzioni_page(page: ft.Page, user):
     input_quantita = ft.TextField(label="Quantità (es. 1 compressa)", width=200, text_size=15)
 
     def apri_date(e):
-        page.open(ft.DatePicker(on_change=lambda e: (setattr(input_data, 'value', e.control.value.strftime("%d-%m-%Y")), input_data.update())))
+        def on_change(e):
+            input_data.value = e.control.value.strftime("%d-%m-%Y")
+            input_data.update()
+        page.open(ft.DatePicker(on_change=on_change))
 
     def apri_time(e):
-        page.open(ft.TimePicker(on_change=lambda e: (setattr(input_ora, 'value', f"{e.control.value.hour:02d}:{e.control.value.minute:02d}"), input_ora.update())))
+        def on_change(e):
+            input_ora.value = f"{e.control.value.hour:02d}:{e.control.value.minute:02d}"
+            input_ora.update()
+        page.open(ft.TimePicker(on_change=on_change))
 
-    def popup_ok(msg):
+    def popup_ok(msg, ricarica=True):
         def chiudi(e):
-            page.close(page.dialog)
-            show_assunzioni_page(page, user)
-        page.open(ft.AlertDialog(title=ft.Text("✅ Ok", color="#10b981"), content=ft.Text(msg), actions=[ft.TextButton("Ok", on_click=chiudi)]))
+            page.close(dialog)
+            if ricarica:
+                show_assunzioni_page(page, user)
+        dialog = ft.AlertDialog(
+            title=ft.Text("✅ Ok", color="#10b981"),
+            content=ft.Text(msg),
+            actions=[ft.TextButton("Ok", on_click=chiudi)]
+        )
+        page.open(dialog)
 
     def popup_err(msg):
-        page.open(ft.AlertDialog(title=ft.Text("⚠️ Errore", color="#ef4444"), content=ft.Text(msg), actions=[ft.TextButton("Ok", on_click=lambda e: page.close(page.dialog))]))
+        def chiudi(e):
+            page.close(dialog)
+        dialog = ft.AlertDialog(
+            title=ft.Text("⚠️ Errore", color="#ef4444"),
+            content=ft.Text(msg),
+            actions=[ft.TextButton("Ok", on_click=chiudi)]
+        )
+        page.open(dialog)
+
+    def popup_conferma_elimina(idx):
+        a = assunzioni_list[idx]
+        try:
+            dv = datetime.strptime(a['giorno'], "%Y-%m-%d").strftime("%d-%m-%Y")
+        except:
+            dv = a['giorno']
+
+        def elimina(e):
+            page.close(dialog)
+            try:
+                paziente.eliminaAssunzione(a['giorno'], a['ora'], a['farmaco'])
+                popup_ok("Assunzione eliminata con successo!")
+            except Exception as ex:
+                popup_err(str(ex))
+
+        dialog = ft.AlertDialog(
+            title=ft.Text("🗑️ Elimina Assunzione", color="#ef4444"),
+            content=ft.Text(
+                f"Sei sicuro di voler eliminare l'assunzione del\n"
+                f"{dv} alle {a['ora']}?\n"
+                f"Farmaco: {a['farmaco']} — {a['quantita']}\n\n"
+                f"Questa azione è irreversibile.",
+                size=15
+            ),
+            actions=[
+                ft.TextButton("Elimina", on_click=elimina, style=ft.ButtonStyle(color="#ef4444")),
+                ft.TextButton("Annulla", on_click=lambda e: page.close(dialog))
+            ]
+        )
+        page.open(dialog)
 
     def carica_modifica(idx):
         nonlocal indice_modifica
@@ -83,10 +133,16 @@ def show_assunzioni_page(page: ft.Page, user):
             dv = a['giorno']
         items.append(ft.Container(
             padding=15, bgcolor="white", border_radius=12, margin=ft.margin.only(bottom=10),
+            shadow=ft.BoxShadow(blur_radius=8, color="rgba(0,0,0,0.05)"),
             content=ft.Row([
                 ft.Column([ft.Text(f"{dv} - {a['ora']}", weight=ft.FontWeight.BOLD, size=15),
                           ft.Text(f"{a['farmaco']} — {a['quantita']}", size=14)], expand=True),
-                ft.IconButton(icon=ft.Icons.EDIT, icon_color="#10b981", on_click=lambda e, i=idx: carica_modifica(i))
+                ft.IconButton(icon=ft.Icons.EDIT, icon_color="#10b981",
+                              tooltip="Modifica",
+                              on_click=lambda e, i=idx: carica_modifica(i)),
+                ft.IconButton(icon=ft.Icons.DELETE, icon_color="#ef4444",
+                              tooltip="Elimina",
+                              on_click=lambda e, i=idx: popup_conferma_elimina(i))
             ])
         ))
 

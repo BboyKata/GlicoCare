@@ -56,13 +56,13 @@ CREATE TABLE IF NOT EXISTS TERAPIA (
     FOREIGN KEY (id_med) REFERENCES MEDICO(id_med) ON DELETE RESTRICT
 );
 
-CREATE TABLE IF NOT EXISTS SINTOMO (
+CREATE TABLE IF NOT EXISTS SEGNALAZIONE (
     id_paz INTEGER NOT NULL,                          
-    giorno DATE NOT NULL,                             
-    ora TIME NOT NULL,                                
-    sintomo VARCHAR(200) NOT NULL,                    
+    giorno_inizio DATE NOT NULL,                      
+    giorno_fine DATE NOT NULL,                        
+    descrizione VARCHAR(500) NOT NULL,                
     terapia VARCHAR(100),                             
-    PRIMARY KEY (id_paz, giorno, ora),
+    PRIMARY KEY (id_paz, giorno_inizio, giorno_fine),
     FOREIGN KEY (id_paz) REFERENCES PAZIENTE(id_paz) ON DELETE CASCADE,
     FOREIGN KEY (id_paz, terapia) REFERENCES TERAPIA(id_paz, farmaco) ON DELETE SET NULL
 );
@@ -78,14 +78,15 @@ CREATE TABLE IF NOT EXISTS ASSUNZIONE (
     FOREIGN KEY (id_paz, farmaco) REFERENCES TERAPIA(id_paz, farmaco) ON DELETE CASCADE
 );
 
+-- Indici
 CREATE INDEX IF NOT EXISTS idx_rilevaz_paziente ON RILEVAZ_GIORN(id_paz);
 CREATE INDEX IF NOT EXISTS idx_terapia_paziente ON TERAPIA(id_paz);
-CREATE INDEX IF NOT EXISTS idx_sintomo_paziente ON SINTOMO(id_paz);
+CREATE INDEX IF NOT EXISTS idx_segnalazione_paziente ON SEGNALAZIONE(id_paz);
 CREATE INDEX IF NOT EXISTS idx_assunzione_paziente ON ASSUNZIONE(id_paz);
 
 CREATE INDEX IF NOT EXISTS idx_paziente_medico ON PAZIENTE(medico);
 CREATE INDEX IF NOT EXISTS idx_terapia_medico ON TERAPIA(id_med);
 
 CREATE INDEX IF NOT EXISTS idx_rilevaz_data ON RILEVAZ_GIORN(giorno);
-CREATE INDEX IF NOT EXISTS idx_sintomo_data ON SINTOMO(giorno);
+CREATE INDEX IF NOT EXISTS idx_segnalazione_date ON SEGNALAZIONE(giorno_inizio, giorno_fine);
 CREATE INDEX IF NOT EXISTS idx_assunzione_data ON ASSUNZIONE(giorno);
