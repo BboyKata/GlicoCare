@@ -13,27 +13,34 @@ from ui.dashboard_paziente import show_patient_dashboard
 
 
 def get_base_path():
-    """Restituisce il percorso base corretto (sia in sviluppo che compilato)."""
+    """Restituisce il percorso base per le risorse (immagini, schema SQL)."""
     if getattr(sys, 'frozen', False):
         return sys._MEIPASS
     else:
         return os.path.dirname(os.path.abspath(__file__))
 
 
-# Percorso del database (UNIFICATO per tutte le operazioni)
-BASE_PATH = get_base_path()
-db = os.path.join(BASE_PATH, "database", "glicocare.db")
+def get_data_path():
+    """
+    Restituisce un percorso scrivibile per i dati utente.
+    Su Windows usa la cartella AppData, su Linux usa la home.
+    """
+    home = os.path.expanduser("~")
+    data_dir = os.path.join(home, ".glicocare")
+    os.makedirs(data_dir, exist_ok=True)
+    return data_dir
+
+
+# Percorso del database (UNIFICATO in una cartella sicura)
+DATA_PATH = get_data_path()
+db = os.path.join(DATA_PATH, "glicocare.db")
 
 
 def init_database():
-    # Determina il percorso base
+    # Percorsi delle risorse (schema e popolamento)
     base_path = get_base_path()
-    
     schema_path = os.path.join(base_path, "database", "schema.sql")
     popola_path = os.path.join(base_path, "database", "popola_test.sql")
-    
-    # Assicurati che la cartella esista
-    os.makedirs(os.path.dirname(db), exist_ok=True)
     
     conn = sqlite3.connect(db)
     cursor = conn.cursor()
@@ -46,9 +53,9 @@ def init_database():
     if cursor.fetchone()[0] == 0:
         with open(popola_path, "r") as f:
             cursor.executescript(f.read())
-        print("Database popolato con dati di test.")
+        print(f"Database popolato con dati di test in: {db}")
     else:
-        print("Database già popolato, salto popolamento.")
+        print(f"Database già popolato in: {db}")
     
     conn.commit()
     conn.close()
@@ -76,7 +83,6 @@ def handle_login(e: ft.ControlEvent):
         return
     
     try:
-        # Passa il percorso corretto alla classe User
         user = User(username, password, db)
         if user.is_paziente():
             show_patient_dashboard(e.page, user)
