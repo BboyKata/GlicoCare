@@ -23,18 +23,23 @@ def init_database():
     else:
         base_path = os.path.dirname(os.path.abspath(__file__))
     
-    os.makedirs("database", exist_ok=True)
-    conn = sqlite3.connect(db)
+    # Su Windows, unisci i percorsi con os.path.join
+    db_path = os.path.join(base_path, "database", "glicocare.db")
+    schema_path = os.path.join(base_path, "database", "schema.sql")
+    popola_path = os.path.join(base_path, "database", "popola_test.sql")
+    
+    # Assicurati che la cartella esista
+    os.makedirs(os.path.dirname(db_path), exist_ok=True)
+    
+    conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
     cursor.execute("PRAGMA foreign_keys = ON")
     
-    schema_path = os.path.join(base_path, "database", "schema.sql")
     with open(schema_path, "r") as f:
         cursor.executescript(f.read())
     
     cursor.execute("SELECT COUNT(*) FROM PAZIENTE")
     if cursor.fetchone()[0] == 0:
-        popola_path = os.path.join(base_path, "database", "popola_test.sql")
         with open(popola_path, "r") as f:
             cursor.executescript(f.read())
         print("Database popolato con dati di test.")
