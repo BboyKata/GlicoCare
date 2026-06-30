@@ -222,6 +222,45 @@ class Medico:
             'gravita_media': round(gravita_media, 1)
         }
 
+    def registra_operazione(self, azione: str, tabella: str, id_record: str = None, dettaglio: str = None) -> None:
+        """
+        Registra un'operazione compiuta dal medico nel log.
+
+        Args:
+            azione (str): Tipo di azione (es. 'AGGIUNTA_TERAPIA', 'MODIFICA_ANNOTAZIONE').
+            tabella (str): Nome della tabella interessata.
+            id_record (str, optional): Identificativo del record modificato.
+            dettaglio (str, optional): Descrizione testuale dell'operazione.
+        """
+        conn = sqlite3.connect(self._db_path)
+        cursor = conn.cursor()
+        try:
+            query = """
+            INSERT INTO LOG_OPERAZIONI (id_med, azione, tabella, id_record, dettaglio)
+            VALUES (?, ?, ?, ?, ?)
+            """
+            cursor.execute(query, (self._id_ref, azione, tabella, id_record, dettaglio))
+            conn.commit()
+        except sqlite3.Error as e:
+            print(f"Errore registrazione log: {e}")
+        finally:
+            conn.close()
+
+    def get_log_operazioni(self, limite=50):
+        conn = sqlite3.connect(self._db_path)
+        cursor = conn.cursor()
+        try:
+            cursor.execute(
+                "SELECT azione, tabella, dettaglio, data_ora FROM LOG_OPERAZIONI WHERE id_med=? ORDER BY data_ora DESC LIMIT ?",
+                (self._id_ref, limite)
+            )
+            return cursor.fetchall()
+        except sqlite3.Error as e:
+            print(f"Errore recupero log: {e}")
+            return []
+        finally:
+            conn.close()
+
     def __str__(self) -> str:
         """
         Restituisce una rappresentazione leggibile del medico.

@@ -12,15 +12,6 @@ from datetime import datetime, timedelta
 
 
 class Paziente:
-    """
-    Rappresenta un paziente e fornisce metodi per interagire con i suoi dati.
-
-    Args:
-        id_ref (int): L'ID del paziente (corrisponde a `id_paz` nella tabella PAZIENTE).
-        db_path (str, optional): Percorso del file del database SQLite. 
-            Default: "database/glicocare.db".
-    """
-
     def __init__(self, id_ref, db_path="database/glicocare.db"):
         self._id_ref = id_ref
         self._db_path = db_path
@@ -36,6 +27,7 @@ class Paziente:
         self._cel = None
         self._gravita = None
         self._medico_id = None
+        self._annotazione = ""          # ← nuova
         
         self._rilevazioni = []
         self._terapie = []
@@ -46,11 +38,6 @@ class Paziente:
         self._aggiorna_gravita_db()
 
     def _carica_dati(self):
-        """
-        Carica i dati anagrafici, le rilevazioni e le terapie del paziente dal DB.
-
-        Questo metodo è privato e viene chiamato automaticamente dal costruttore.
-        """
         conn = sqlite3.connect(self._db_path)
         cursor = conn.cursor()
 
@@ -59,7 +46,7 @@ class Paziente:
             SELECT 
                 A.CF, A.nome, A.cognome, A.sesso, A.dataNascita, A.luogoNascita,
                 A.indirizzo, A.email, A.cel,
-                P.gravita, P.medico
+                P.gravita, P.medico, P.annotazione
             FROM PAZIENTE P
             JOIN ANAGRAFICA A ON P.CF = A.CF
             WHERE P.id_paz = ?
@@ -72,7 +59,10 @@ class Paziente:
 
             (self._cf, self._nome, self._cognome, self._sesso, 
              self._data_nascita, self._luogo_nascita, self._indirizzo, 
-             self._email, self._cel, self._gravita, self._medico_id) = row
+             self._email, self._cel, self._gravita, self._medico_id,
+             self._annotazione) = row
+            if self._annotazione is None:
+                self._annotazione = ""
 
             query_rilevazioni = """
             SELECT giorno, ora, glicemia, primaDopoPasto
@@ -95,7 +85,6 @@ class Paziente:
         finally:
             conn.close()
         
-        # Ordina dopo aver caricato tutto
         self._ordina_rilevazioni()
 
     def _refresh_rilevazioni(self):
@@ -675,6 +664,28 @@ class Paziente:
             conn.close()
         
         self._aggiorna_gravita_db()
+
+
+    # Aggiungere i nuovi getter/setter dopo gli altri getter
+    def getAnnotazione(self) -> str:
+        """Restituisce l'annotazione clinica del paziente."""
+        return self._annotazione
+
+    def aggiornaAnnotazione(self, testo: str) -> None:
+        """Aggiorna l'annotazione clinica nel database e in memoria."""
+        conn = sqlite3.connect(self._db_path)
+        cursor = conn.cursor()
+        try:
+            cursor.execute(
+                "UPDATE PAZIENTE SET annotazione = ? WHERE id_paz = ?",
+                (testo, self._id_ref)
+            )
+            conn.commit()
+            self._annotazione = testo
+        except sqlite3.Error as e:
+            print(f"Errore aggiornamento annotazione: {e}")
+        finally:
+            conn.close()
 
     def __str__(self) -> str:
         """

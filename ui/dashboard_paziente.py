@@ -20,7 +20,7 @@ def show_patient_dashboard(page: ft.Page, user: User):
     img_data = crea_grafico_glicemia_matplotlib(paziente.getRilevazioni())
     
     if img_data:
-        grafico_widget = ft.Image(src_base64=img_data, fit=ft.ImageFit.CONTAIN, width=700, height=350)
+        grafico_widget = ft.Image(src_base64=img_data, fit=ft.ImageFit.CONTAIN)
     else:
         grafico_widget = ft.Container(
             content=ft.Text("Nessuna rilevazione disponibile.", size=16, color="#64748b"),
@@ -71,7 +71,7 @@ def show_patient_dashboard(page: ft.Page, user: User):
         ])
 
     box_segnalazioni = ft.Container(
-        width=340, padding=20, bgcolor="#FFFFFF", border_radius=12,
+        padding=20, bgcolor="#FFFFFF", border_radius=12,
         border=ft.border.all(1, "#e2e8f0"),
         shadow=ft.BoxShadow(blur_radius=10, color="rgba(0,0,0,0.05)"),
         content=ft.Column([
@@ -88,23 +88,23 @@ def show_patient_dashboard(page: ft.Page, user: User):
         from main import show_login_page
         show_login_page(page)
 
-    # --- COLONNA SINISTRA (MODIFICATA: usa ListView per lo scroll) ---
+    # --- COLONNA SINISTRA (30%) ---
     left_col = ft.Container(
         expand=3,
-        padding=40, 
+        padding=30, 
         bgcolor="#FFFFFF",
-        content=ft.ListView(  # <--- AVVOLTO IN UN ft.ListView
+        content=ft.ListView(
             controls=[
                 ft.Text(
                     f"{'Benvenuta' if paziente.getSesso() == 'F' else 'Benvenuto'}, {paziente.getNome()}!", 
-                    size=30, weight=ft.FontWeight.BOLD, color="#1e293b"
+                    size=28, weight=ft.FontWeight.BOLD, color="#1e293b"
                 ),                
-                ft.Text("Cosa vuoi fare oggi?", size=17, color="#64748b"),
+                ft.Text("Cosa vuoi fare oggi?", size=16, color="#64748b"),
                 ft.Container(height=25),
                 box_segnalazioni,
                 ft.Container(height=20),
                 ft.Container(
-                    width=340, height=65, bgcolor="#2563eb", border_radius=12,
+                    height=65, bgcolor="#2563eb", border_radius=12,
                     alignment=ft.alignment.center, padding=10,
                     on_click=lambda e: show_registrazione_page(page, user),
                     content=ft.Text("Registrazione giornaliera", size=16, color="white", 
@@ -112,7 +112,7 @@ def show_patient_dashboard(page: ft.Page, user: User):
                 ),
                 ft.Container(height=12),
                 ft.Container(
-                    width=340, height=65, bgcolor="#f59e0b", border_radius=12,
+                    height=65, bgcolor="#f59e0b", border_radius=12,
                     alignment=ft.alignment.center, padding=10,
                     on_click=lambda e: show_sintomi_page(page, user),
                     content=ft.Text("Aggiungi segnalazione", size=16, color="white", 
@@ -120,7 +120,7 @@ def show_patient_dashboard(page: ft.Page, user: User):
                 ),
                 ft.Container(height=12),
                 ft.Container(
-                    width=340, height=65, bgcolor="#10b981", border_radius=12,
+                    height=65, bgcolor="#10b981", border_radius=12,
                     alignment=ft.alignment.center, padding=10,
                     on_click=lambda e: show_assunzioni_page(page, user),
                     content=ft.Text("Aggiungi assunzione farmaco", size=16, color="white", 
@@ -128,31 +128,78 @@ def show_patient_dashboard(page: ft.Page, user: User):
                 ),
                 ft.Container(height=12),
                 ft.Container(
-                    width=340, height=55, bgcolor="#ef4444", border_radius=12,
+                    height=55, bgcolor="#ef4444", border_radius=12,
                     alignment=ft.alignment.center,
                     on_click=btn_logout,
                     content=ft.Text("Logout", size=16, color="white", weight=ft.FontWeight.BOLD)
                 )
             ],
-            # Queste due righe permettono alla lista di espandersi e aggiungono lo scroll
             expand=True,
             spacing=0
         )
     )
 
-    # --- COLONNA DESTRA ---
+    # --- COLONNA DESTRA (70%) ---
+    # Lista terapie (scrollabile)
+    terapie = paziente.getTerapie()
+    terapia_items = []
+    for t in terapie:
+        terapia_items.append(
+            ft.Container(
+                padding=10, bgcolor="#f1f5f9", border_radius=8,
+                content=ft.Column([
+                    ft.Row([
+                        ft.Text(t[0], weight=ft.FontWeight.BOLD, size=14),
+                        ft.Text(t[2], size=12, color="#64748b"),
+                    ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
+                    ft.Text(f"{t[1]} assunzioni/giorno", size=11, color="#64748b"),
+                    ft.Text(t[3] or "", size=11, color="#94a3b8", italic=True) if t[3] else ft.Text(""),
+                ], spacing=2)
+            )
+        )
+    if not terapia_items:
+        terapia_items = [ft.Text("Nessuna terapia prescritta", size=13, color="#94a3b8", italic=True)]
+
+    terapie_lista = ft.Container(
+        padding=10, bgcolor="white", border_radius=12,
+        border=ft.border.all(1, "#e2e8f0"),
+        expand=1,   # occupa 1 parte della Row
+        content=ft.Column([
+            ft.Text("Le tue Terapie", size=16, weight=ft.FontWeight.BOLD, color="#1e293b"),
+            ft.Divider(color="#e2e8f0", height=1),
+            ft.Container(height=5),
+            ft.ListView(
+                controls=terapia_items,
+                expand=True,
+                spacing=5
+            )
+        ])
+    )
+
+    # Grafico (senza altezza fissa, si espande)
+    grafico_card = ft.Container(
+        content=grafico_widget,
+        bgcolor="#FFFFFF", padding=20, border_radius=16,
+        shadow=ft.BoxShadow(blur_radius=20, color="rgba(0,0,0,0.1)"),
+        expand=3   # occupa 3 parti della Row
+    )
+
+    # Riga terapie | grafico
+    riga_terapie_grafico = ft.Row([
+        terapie_lista,
+        ft.Container(width=15),
+        grafico_card
+    ], expand=True, vertical_alignment=ft.CrossAxisAlignment.START)
+
     current_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     doc_img_path = os.path.join(current_dir, "img", "doc.png")
     
     right_col = ft.Container(
-        expand=4, 
-        padding=40, 
+        expand=7,
+        padding=30, 
         bgcolor="#F8FAFC",
         content=ft.Column([
-            ft.Container(
-                content=grafico_widget, bgcolor="#FFFFFF", padding=20, border_radius=16,
-                shadow=ft.BoxShadow(blur_radius=20, color="rgba(0,0,0,0.1)")
-            ),
+            riga_terapie_grafico,
             ft.Container(height=20),
             ft.Container(
                 bgcolor="#FFFFFF", padding=20, border_radius=16,
@@ -175,7 +222,7 @@ def show_patient_dashboard(page: ft.Page, user: User):
                     )
                 ], alignment=ft.MainAxisAlignment.START, vertical_alignment=ft.CrossAxisAlignment.START, spacing=20)
             )
-        ], alignment=ft.MainAxisAlignment.START, horizontal_alignment=ft.CrossAxisAlignment.CENTER)
+        ], scroll=ft.ScrollMode.AUTO, spacing=0, expand=True)
     )
 
     page.add(ft.Row(controls=[left_col, right_col], expand=True, spacing=20))

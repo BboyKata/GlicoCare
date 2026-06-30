@@ -2,6 +2,8 @@ import flet as ft
 from src.user import User
 from src.medico import Medico
 from src.paziente import Paziente
+from ui.dettaglio_paziente import show_paziente_detail
+from ui.log_page import show_log_page
 
 
 def show_doctor_dashboard(page: ft.Page, user: User):
@@ -16,6 +18,26 @@ def show_doctor_dashboard(page: ft.Page, user: User):
     pazienti = medico.getPazientiConDettaglio()
     stats = medico.getStatistiche()
 
+    # --- HEADER CON LOGOUT e LOG ---
+    header = ft.Row([
+        ft.Text("GlicoCare - Area Medico", size=24, weight=ft.FontWeight.BOLD, color="#1e293b"),
+        ft.Row([
+            ft.Container(
+                width=120, height=36, bgcolor="#6366f1", border_radius=8,
+                alignment=ft.alignment.center,
+                on_click=lambda e: show_log_page(page, user),
+                content=ft.Text("Log", size=13, color="white", weight=ft.FontWeight.BOLD)
+            ),
+            ft.Container(width=8),
+            ft.Container(
+                width=110, height=36, bgcolor="#ef4444", border_radius=8,
+                alignment=ft.alignment.center,
+                on_click=lambda e: show_login_page(page),
+                content=ft.Text("Logout", size=13, color="white", weight=ft.FontWeight.BOLD)
+            ),
+        ])
+    ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN)
+
     # --- COLONNA SINISTRA: Lista pazienti ---
     items = []
     for paz in pazienti:
@@ -28,32 +50,32 @@ def show_doctor_dashboard(page: ft.Page, user: User):
             gravita_color = "#10b981"
 
         if paz['tipo'] == "Glicemia + Terapia":
-            icona = ft.Icon(ft.Icons.WARNING, color="#ef4444", size=18)
+            icona = ft.Icon(ft.Icons.WARNING, color="#ef4444", size=20)
         elif paz['tipo'] == "Glicemia fuori soglia":
-            icona = ft.Icon(ft.Icons.MONITOR_HEART, color="#f59e0b", size=18)
+            icona = ft.Icon(ft.Icons.MONITOR_HEART, color="#f59e0b", size=20)
         elif paz['tipo'] == "Terapia non rispettata":
-            icona = ft.Icon(ft.Icons.MEDICATION, color="#8b5cf6", size=18)
+            icona = ft.Icon(ft.Icons.MEDICATION, color="#8b5cf6", size=20)
         else:
-            icona = ft.Icon(ft.Icons.CHECK_CIRCLE, color="#10b981", size=18)
+            icona = ft.Icon(ft.Icons.CHECK_CIRCLE, color="#10b981", size=20)
 
         items.append(
             ft.Container(
-                padding=15, bgcolor="white", border_radius=12,
-                margin=ft.margin.only(bottom=10),
-                shadow=ft.BoxShadow(blur_radius=8, color="rgba(0,0,0,0.05)"),
+                padding=12, bgcolor="white", border_radius=10,
+                margin=ft.margin.only(bottom=8),
+                shadow=ft.BoxShadow(blur_radius=6, color="rgba(0,0,0,0.04)"),
                 content=ft.Row([
                     icona,
                     ft.Column([
-                        ft.Text(f"{paz['nome']} {paz['cognome']}", weight=ft.FontWeight.BOLD, size=15, color="#1e293b"),
-                        ft.Text(paz['tipo'], size=13, color="#64748b"),
-                    ], expand=True),
+                        ft.Text(f"{paz['nome']} {paz['cognome']}", weight=ft.FontWeight.BOLD, size=16, color="#1e293b"),
+                        ft.Text(paz['tipo'], size=14, color="#64748b"),
+                    ], expand=True, spacing=4),
                     ft.Container(
                         bgcolor=gravita_color, border_radius=20,
-                        padding=ft.padding.symmetric(horizontal=12, vertical=6),
-                        content=ft.Text(str(gravita), color="white", weight=ft.FontWeight.BOLD, size=14)
+                        padding=ft.padding.symmetric(horizontal=14, vertical=6),
+                        content=ft.Text(str(gravita), color="white", weight=ft.FontWeight.BOLD, size=15)
                     ),
                     ft.IconButton(
-                        icon=ft.Icons.VISIBILITY, icon_color="#2563eb",
+                        icon=ft.Icons.VISIBILITY, icon_color="#2563eb", icon_size=22,
                         tooltip="Visualizza paziente",
                         on_click=lambda e, pid=paz['id']: show_paziente_detail(page, user, pid)
                     )
@@ -64,7 +86,7 @@ def show_doctor_dashboard(page: ft.Page, user: User):
     left_col = ft.Container(
         expand=2, padding=20, bgcolor="#FFFFFF", border_radius=16,
         content=ft.Column([
-            ft.Text("I tuoi pazienti", size=24, weight=ft.FontWeight.BOLD, color="#1e293b"),
+            ft.Text("I tuoi pazienti", size=22, weight=ft.FontWeight.BOLD, color="#1e293b"),
             ft.Text(f"Ordinati per gravità — {stats['totale']} totali", size=14, color="#64748b"),
             ft.Divider(color="#e2e8f0"),
             ft.ListView(controls=items, expand=True, spacing=0)
@@ -72,115 +94,112 @@ def show_doctor_dashboard(page: ft.Page, user: User):
     )
 
     # --- COLONNA DESTRA: Prospetto ---
+    card_width = 150
+    card_padding = 14
+    icon_size = 22
+    value_size = 22
+    title_size = 11
+
     right_col = ft.Container(
-        expand=3, padding=40, bgcolor="#F8FAFC",
+        expand=3, padding=30, bgcolor="#F8FAFC",
+        clip_behavior=ft.ClipBehavior.ANTI_ALIAS,
         content=ft.Column([
-            ft.Text("Prospetto Generale", size=26, weight=ft.FontWeight.BOLD, color="#1e293b"),
+            ft.Text("Prospetto Generale", size=24, weight=ft.FontWeight.BOLD, color="#1e293b"),
             ft.Divider(color="#e2e8f0"),
-            ft.Container(height=20),
+            ft.Container(height=10),
 
             ft.Row([
-                _card_stat("Pazienti totali", str(stats['totale']), "#2563eb", ft.Icons.PEOPLE),
-                _card_stat("In regola", str(stats['in_regola']), "#10b981", ft.Icons.CHECK_CIRCLE),
-                _card_stat("Con gravità", str(stats['gravi']), "#ef4444", ft.Icons.WARNING),
-            ], alignment=ft.MainAxisAlignment.SPACE_EVENLY),
+                _card_stat("Pazienti totali", str(stats['totale']), "#2563eb", ft.Icons.PEOPLE,
+                           width=card_width, padding=card_padding, icon_size=icon_size,
+                           value_size=value_size, title_size=title_size),
+                ft.Container(width=8),
+                _card_stat("In regola", str(stats['in_regola']), "#10b981", ft.Icons.CHECK_CIRCLE,
+                           width=card_width, padding=card_padding, icon_size=icon_size,
+                           value_size=value_size, title_size=title_size),
+                ft.Container(width=8),
+                _card_stat("Con gravità", str(stats['gravi']), "#ef4444", ft.Icons.WARNING,
+                           width=card_width, padding=card_padding, icon_size=icon_size,
+                           value_size=value_size, title_size=title_size),
+            ], alignment=ft.MainAxisAlignment.CENTER, vertical_alignment=ft.CrossAxisAlignment.START),
 
-            ft.Container(height=20),
+            ft.Container(height=8),
 
             ft.Row([
-                _card_stat("Glicemia fuori soglia", str(stats['solo_glicemia']), "#f59e0b", ft.Icons.MONITOR_HEART),
-                _card_stat("Terapia non rispettata", str(stats['solo_terapia']), "#8b5cf6", ft.Icons.MEDICATION),
-                _card_stat("Entrambi i problemi", str(stats['entrambi']), "#ef4444", ft.Icons.ERROR),
-            ], alignment=ft.MainAxisAlignment.SPACE_EVENLY),
+                _card_stat("Glicemia fuori soglia", str(stats['solo_glicemia']), "#f59e0b", ft.Icons.MONITOR_HEART,
+                           width=card_width, padding=card_padding, icon_size=icon_size,
+                           value_size=value_size, title_size=title_size),
+                ft.Container(width=8),
+                _card_stat("Terapia non rispettata", str(stats['solo_terapia']), "#8b5cf6", ft.Icons.MEDICATION,
+                           width=card_width, padding=card_padding, icon_size=icon_size,
+                           value_size=value_size, title_size=title_size),
+                ft.Container(width=8),
+                _card_stat("Entrambi i problemi", str(stats['entrambi']), "#ef4444", ft.Icons.ERROR,
+                           width=card_width, padding=card_padding, icon_size=icon_size,
+                           value_size=value_size, title_size=title_size),
+            ], alignment=ft.MainAxisAlignment.CENTER, vertical_alignment=ft.CrossAxisAlignment.START),
 
-            ft.Container(height=30),
+            ft.Container(height=15),
 
+            # Gravità media
+            # Gravità media (SENZA ombra)
             ft.Container(
-                padding=20, bgcolor="white", border_radius=12,
-                shadow=ft.BoxShadow(blur_radius=10, color="rgba(0,0,0,0.05)"),
+                padding=12,
+                bgcolor="white",
+                border_radius=12,
+                border=ft.border.all(1, "#e2e8f0"),
                 content=ft.Row([
-                    ft.Icon(ft.Icons.TRENDING_UP, color="#2563eb", size=28),
+                    ft.Icon(ft.Icons.TRENDING_UP, color="#2563eb", size=24),
                     ft.Column([
-                        ft.Text("Gravità media", size=14, color="#64748b"),
-                        ft.Text(str(stats['gravita_media']), size=24, weight=ft.FontWeight.BOLD, color="#1e293b"),
+                        ft.Text("Gravità media", size=13, color="#64748b"),
+                        ft.Text(str(stats['gravita_media']), size=22, weight=ft.FontWeight.BOLD, color="#1e293b"),
                     ]),
                 ], alignment=ft.MainAxisAlignment.START)
             ),
+            ft.Container(height=12),
 
-            ft.Container(height=20),
-
-            ft.Text("Pazienti con gravità > 0", size=18, weight=ft.FontWeight.BOLD, color="#1e293b"),
+            ft.Text("Pazienti con gravità > 0", size=16, weight=ft.FontWeight.BOLD, color="#1e293b"),
             ft.Divider(color="#e2e8f0"),
-            ft.Container(height=10),
-            ft.ListView(
-                controls=[
-                    ft.Container(
-                        padding=10, bgcolor="white", border_radius=8,
-                        margin=ft.margin.only(bottom=8),
-                        content=ft.Row([
-                            ft.Text(f"{p['nome']} {p['cognome']}", weight=ft.FontWeight.BOLD, size=14),
-                            ft.Text(f"Gravità: {p['gravita']} ({p['tipo']})", size=13, color="#64748b")
-                        ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN)
-                    )
-                    for p in pazienti if p['gravita'] > 0
-                ],
-                expand=True
-            ) if stats['gravi'] > 0 else ft.Text("Nessun paziente con gravità.", color="#64748b", size=14),
-
-            ft.Container(height=20),
+            ft.Container(height=5),
             ft.Container(
-                width=250, height=50, bgcolor="#ef4444", border_radius=12,
-                alignment=ft.alignment.center,
-                on_click=lambda e: show_login_page(page),
-                content=ft.Text("Logout", size=16, color="white", weight=ft.FontWeight.BOLD)
-            )
-        ], alignment=ft.MainAxisAlignment.START, horizontal_alignment=ft.CrossAxisAlignment.CENTER)
+                height=180,
+                content=ft.ListView(
+                    controls=[
+                        ft.Container(
+                            padding=8, bgcolor="white", border_radius=6,
+                            margin=ft.margin.only(bottom=4),
+                            content=ft.Row([
+                                ft.Text(f"{p['nome']} {p['cognome']}", weight=ft.FontWeight.BOLD, size=13),
+                                ft.Text(f"Gravità: {p['gravita']} ({p['tipo']})", size=12, color="#64748b")
+                            ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN)
+                        )
+                        for p in pazienti if p['gravita'] > 0
+                    ],
+                    expand=True,
+                    spacing=0
+                ) if stats['gravi'] > 0 else ft.Text("Nessun paziente con gravità.", color="#64748b", size=14)
+            ),
+        ], scroll=ft.ScrollMode.AUTO, expand=True)
     )
 
-    page.add(ft.Row(controls=[left_col, right_col], expand=True, spacing=20))
+    page.add(
+        ft.Column([
+            header,
+            ft.Divider(color="#e2e8f0", height=1),
+            ft.Container(height=8),
+            ft.Row(controls=[left_col, right_col], expand=True, spacing=20)
+        ], expand=True)
+    )
     page.update()
 
 
-def _card_stat(titolo: str, valore: str, colore: str, icona) -> ft.Container:
-    """Crea una card statistica per il prospetto."""
+def _card_stat(titolo: str, valore: str, colore: str, icona,
+               width=180, padding=20, icon_size=28, value_size=28, title_size=12) -> ft.Container:
     return ft.Container(
-        width=180, padding=20, bgcolor="white", border_radius=12,
-        shadow=ft.BoxShadow(blur_radius=10, color="rgba(0,0,0,0.05)"),
+        width=width, padding=padding, bgcolor="white", border_radius=10,
+        shadow=ft.BoxShadow(blur_radius=6, color="rgba(0,0,0,0.04)"),
         content=ft.Column([
-            ft.Icon(icona, color=colore, size=28),
-            ft.Text(valore, size=28, weight=ft.FontWeight.BOLD, color=colore),
-            ft.Text(titolo, size=12, color="#64748b", text_align=ft.TextAlign.CENTER),
-        ], alignment=ft.MainAxisAlignment.CENTER, horizontal_alignment=ft.CrossAxisAlignment.CENTER)
+            ft.Icon(icona, color=colore, size=icon_size),
+            ft.Text(valore, size=value_size, weight=ft.FontWeight.BOLD, color=colore),
+            ft.Text(titolo, size=title_size, color="#64748b", text_align=ft.TextAlign.CENTER),
+        ], alignment=ft.MainAxisAlignment.CENTER, horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=4)
     )
-
-
-def show_paziente_detail(page: ft.Page, user: User, id_paz: int):
-    """Pagina di dettaglio del singolo paziente."""
-    from ui.dashboard_medico import show_doctor_dashboard
-
-    page.controls.clear()
-    page.title = "GlicoCare - Dettaglio Paziente"
-    page.bgcolor = "#F8FAFC"
-    page.padding = 20
-
-    paziente = Paziente(id_paz)
-    medico = Medico(user.id_ref)
-
-    # Verifica che il paziente sia assegnato a questo medico
-    if id_paz not in medico.getPazientiIds():
-        page.add(ft.Text("Paziente non assegnato a questo medico.", color="red"))
-        page.update()
-        return
-
-    page.add(ft.Column([
-        ft.Container(
-            content=ft.Text("← Torna alla Dashboard Medico", size=16, color="#2563eb", weight=ft.FontWeight.BOLD),
-            on_click=lambda e: show_doctor_dashboard(page, user), padding=10
-        ),
-        ft.Text(f"Dettaglio Paziente: {paziente.getNome()} {paziente.getCognome()}", size=26, weight=ft.FontWeight.BOLD),
-        ft.Text(f"Gravità totale: {paziente.getGravita()} | "
-               f"Glicemia: {paziente.getPuntiGlicemia()} | "
-               f"Terapia: {paziente.getPuntiTerapia()}", size=16),
-        ft.Text("(Funzionalità in sviluppo)", size=14, color="#64748b"),
-    ], alignment=ft.MainAxisAlignment.START))
-    page.update()

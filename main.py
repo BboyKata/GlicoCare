@@ -11,17 +11,27 @@ from ui.dashboard_medico import show_doctor_dashboard
 
 db = os.path.join("database", "glicocare.db")
 
-
 def init_database():
     import sqlite3
     os.makedirs("database", exist_ok=True)
     conn = sqlite3.connect(db)
     cursor = conn.cursor()
     cursor.execute("PRAGMA foreign_keys = ON")
+    
+    # Crea le tabelle se non esistono
     with open("database/schema.sql", "r") as f:
         cursor.executescript(f.read())
-    with open("database/popola_test.sql", "r") as f:
-        cursor.executescript(f.read())
+    
+    # Controlla se il database è vuoto (primo avvio)
+    cursor.execute("SELECT COUNT(*) FROM PAZIENTE")
+    if cursor.fetchone()[0] == 0:
+        # Popola solo se è la prima volta
+        with open("database/popola_test.sql", "r") as f:
+            cursor.executescript(f.read())
+        print("Database popolato con dati di test.")
+    else:
+        print("Database già popolato, salto popolamento.")
+    
     conn.commit()
     conn.close()
 
@@ -111,7 +121,7 @@ def show_login_page(page: ft.Page):
             error_label,
             login_btn,
             ft.Container(height=20),
-            ft.Text("© 2024 GlicoCare - Tutti i diritti riservati", size=12, color="#94a3b8")
+            ft.Text("© 2026 GlicoCare - Tutti i diritti riservati", size=12, color="#94a3b8")
         ], alignment=ft.MainAxisAlignment.CENTER, horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=15),
         bgcolor="white", expand=3, padding=40
     )
