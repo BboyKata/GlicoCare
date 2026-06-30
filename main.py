@@ -4,7 +4,7 @@ GlicoCare - Applicazione Desktop per il Monitoraggio della Glicemia.
 
 import flet as ft
 import os
-
+from ui.dashboard_medico import show_doctor_dashboard
 from src.user import User, CredenzialiNonValide
 from ui.dashboard_paziente import show_patient_dashboard
 from ui.dashboard_medico import show_doctor_dashboard
@@ -20,9 +20,10 @@ def init_database():
     cursor.execute("PRAGMA foreign_keys = ON")
     with open("database/schema.sql", "r") as f:
         cursor.executescript(f.read())
+    with open("database/popola_test.sql", "r") as f:
+        cursor.executescript(f.read())
     conn.commit()
     conn.close()
-
 
 def handle_login(e: ft.ControlEvent):
     global username_field, password_field, error_label

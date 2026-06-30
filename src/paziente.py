@@ -8,6 +8,7 @@ relative a un singolo paziente (anagrafica, rilevazioni, terapie, sintomi).
 
 import os
 import sqlite3
+from datetime import datetime, timedelta
 
 
 class Paziente:
@@ -38,8 +39,11 @@ class Paziente:
         
         self._rilevazioni = []
         self._terapie = []
+        self._punti_glicemia = 0
+        self._punti_terapia = 0 
         
         self._carica_dati()
+        self._aggiorna_gravita_db()
 
     def _carica_dati(self):
         """
@@ -117,61 +121,82 @@ class Paziente:
     # ==========================================================
     def _calcola_gravita(self):
         """
-        Calcola il numero di rilevazioni fuori soglia negli ultimi 30 giorni.
-
-        Soglie:
-        - Prima dei pasti (P): 80-130 mg/dL
-        - Dopo i pasti (D): max 180 mg/dL
-
+        Calcola la gravità del paziente:
+        - Ogni valore glicemico fuori soglia = 1 punto
+        - Ogni giorno con rilevazioni ma senza assunzioni complete = 1 punto
+        
         Returns:
-            int: Numero di valori fuori soglia (nuova gravità).
+            tuple: (punteggio_totale, punti_glicemia, punti_terapia)
         """
         conn = sqlite3.connect(self._db_path)
         cursor = conn.cursor()
+        
+        punti_glicemia = 0
+        punti_terapia = 0
+        
         try:
-            query = """
-            SELECT glicemia, primaDopoPasto
-            FROM RILEVAZ_GIORN
-            WHERE id_paz = ?
-            """
-            cursor.execute(query, (self._id_ref,))
-            rilevazioni = cursor.fetchall()
+            # --- PUNTI GLICEMIA: tutti i valori fuori soglia ---
+            cursor.execute(
+                "SELECT glicemia, primaDopoPasto FROM RILEVAZ_GIORN WHERE id_paz = ?",
+                (self._id_ref,)
+            )
+            for glicemia, tipo_pasto in cursor.fetchall():
+                if tipo_pasto == 'P' and (glicemia < 80 or glicemia > 130):
+                    punti_glicemia += 1
+                elif tipo_pasto == 'D' and glicemia > 180:
+                    punti_glicemia += 1
+            
+            # --- PUNTI TERAPIA: solo giorni con rilevazioni ---
+            cursor.execute(
+                "SELECT farmaco, assunzioniGiornaliere FROM TERAPIA WHERE id_paz = ?",
+                (self._id_ref,)
+            )
+            terapie = cursor.fetchall()
+            
+            if terapie:
+                # Prendi solo i giorni in cui ci sono rilevazioni (giorni "attivi")
+                cursor.execute(
+                    "SELECT DISTINCT giorno FROM RILEVAZ_GIORN WHERE id_paz = ? ORDER BY giorno",
+                    (self._id_ref,)
+                )
+                giorni_attivi = [row[0] for row in cursor.fetchall()]
+                
+                # Per ogni giorno con rilevazioni, verifica che tutte le assunzioni siano state fatte
+                for giorno in giorni_attivi:
+                    giorno_penalizzato = False
+                    for farmaco, assunzioni_previste in terapie:
+                        cursor.execute(
+                            "SELECT COUNT(*) FROM ASSUNZIONE WHERE id_paz = ? AND giorno = ? AND farmaco = ?",
+                            (self._id_ref, giorno, farmaco)
+                        )
+                        assunzioni_fatte = cursor.fetchone()[0]
+                        if assunzioni_fatte < assunzioni_previste:
+                            punti_terapia += 1
+                            break  # basta un farmaco mancante per penalizzare il giorno
+            
         except sqlite3.Error as e:
             print(f"Errore calcolo gravità: {e}")
-            return 0
         finally:
             conn.close()
-
-        count_fuori_soglia = 0
         
-        for glicemia, tipo_pasto in rilevazioni:
-            if tipo_pasto == 'P':
-                # Prima del pasto: deve essere tra 80 e 130
-                if glicemia < 80 or glicemia > 130:
-                    count_fuori_soglia += 1
-            elif tipo_pasto == 'D':
-                # Dopo il pasto: non deve superare 180
-                if glicemia > 180:
-                    count_fuori_soglia += 1
-        
-        return count_fuori_soglia
-
+        return (punti_glicemia + punti_terapia, punti_glicemia, punti_terapia)
     def _aggiorna_gravita_db(self):
         """
         Ricalcola la gravità e la aggiorna nel database e nell'oggetto.
-
-        Returns:
-            None
         """
-        nuova_gravita = self._calcola_gravita()
+        punteggio, punti_glicemia, punti_terapia = self._calcola_gravita()
         
         conn = sqlite3.connect(self._db_path)
         cursor = conn.cursor()
         try:
-            query = "UPDATE PAZIENTE SET gravita = ? WHERE id_paz = ?"
-            cursor.execute(query, (nuova_gravita, self._id_ref))
+            cursor.execute(
+                "UPDATE PAZIENTE SET gravita = ? WHERE id_paz = ?",
+                (punteggio, self._id_ref)
+            )
             conn.commit()
-            self._gravita = nuova_gravita
+            self._gravita = punteggio
+            self._punti_glicemia = punti_glicemia
+            self._punti_terapia = punti_terapia
         except sqlite3.Error as e:
             print(f"Errore aggiornamento gravità: {e}")
         finally:
@@ -237,6 +262,14 @@ class Paziente:
                 (giorno (str), ora (str), glicemia (float), primaDopoPasto (str)).
         """
         return self._rilevazioni
+
+    def getPuntiGlicemia(self) -> int:
+        """Restituisce i punti gravità legati alla glicemia fuori soglia."""
+        return self._punti_glicemia
+    
+    def getPuntiTerapia(self) -> int:
+        """Restituisce i punti gravità legati alla terapia non rispettata."""
+        return self._punti_terapia
 
     # ==========================================================
     # TERAPIE E MEDICO
@@ -394,7 +427,7 @@ class Paziente:
         self._aggiorna_gravita_db()
 
     # ==========================================================
-    # SINTOMI E ASSUNZIONI
+    # SINTOMI
     # ==========================================================
     def aggiungiSintomo(self, giorno: str, ora: str, sintomo: str, terapia: str = None) -> None:
         """
@@ -421,126 +454,6 @@ class Paziente:
         finally:
             conn.close()
 
-    def aggiungiAssunzione(self, giorno: str, ora: str, farmaco: str, quantita: str) -> None:
-        """
-        Registra un'assunzione di un farmaco da parte del paziente.
-
-        Verifica che il farmaco sia presente nella terapia del paziente prima di
-        procedere con l'inserimento.
-
-        Args:
-            giorno (str): Data dell'assunzione nel formato 'YYYY-MM-DD'.
-            ora (str): Ora dell'assunzione nel formato 'HH:MM'.
-            farmaco (str): Nome del farmaco assunto.
-            quantita (str): Quantità assunta (es. '1 compressa', '5 ml').
-        """
-        conn = sqlite3.connect(self._db_path)
-        cursor = conn.cursor()
-        try:
-            cursor.execute("SELECT 1 FROM TERAPIA WHERE id_paz = ? AND farmaco = ?", (self._id_ref, farmaco))
-            if cursor.fetchone() is None:
-                print(f"Attenzione: Il farmaco '{farmaco}' non è presente nella terapia del paziente.")
-                return
-
-            query = """
-            INSERT INTO ASSUNZIONE (id_paz, giorno, ora, farmaco, quantita)
-            VALUES (?, ?, ?, ?, ?)
-            """
-            cursor.execute(query, (self._id_ref, giorno, ora, farmaco, quantita))
-            conn.commit()
-            print("Assunzione registrata con successo.")
-        except sqlite3.Error as e:
-            print(f"Errore nella registrazione dell'assunzione: {e}")
-        finally:
-            conn.close()
-
-    # ==========================================================
-    # ASSUNZIONI
-    # ==========================================================
-    def getAssunzioni(self) -> list:
-        """
-        Recupera tutte le assunzioni di farmaci del paziente.
-
-        Returns:
-            list: Lista di tuple nel formato 
-                (giorno (str), ora (str), farmaco (str), quantita (str)).
-        """
-        conn = sqlite3.connect(self._db_path)
-        cursor = conn.cursor()
-        try:
-            query = """
-            SELECT giorno, ora, farmaco, quantita
-            FROM ASSUNZIONE
-            WHERE id_paz = ?
-            ORDER BY giorno DESC, ora DESC
-            """
-            cursor.execute(query, (self._id_ref,))
-            return cursor.fetchall()
-        except sqlite3.Error as e:
-            print(f"Errore recupero assunzioni: {e}")
-            return []
-        finally:
-            conn.close()
-
-    def aggiornaAssunzione(self, vecchio_giorno: str, vecchia_ora: str, vecchio_farmaco: str, 
-                        nuovo_giorno: str, nuova_ora: str, farmaco: str, quantita: str) -> None:
-        """
-        Aggiorna un'assunzione esistente.
-
-        Args:
-            vecchio_giorno (str): Data originale ('YYYY-MM-DD').
-            vecchia_ora (str): Ora originale ('HH:MM').
-            vecchio_farmaco (str): Nome originale del farmaco.
-            nuovo_giorno (str): Nuova data ('YYYY-MM-DD').
-            nuova_ora (str): Nuova ora ('HH:MM').
-            farmaco (str): Nuovo nome del farmaco.
-            quantita (str): Nuova quantità assunta.
-        """
-        conn = sqlite3.connect(self._db_path)
-        cursor = conn.cursor()
-        try:
-            query = """
-            UPDATE ASSUNZIONE
-            SET giorno = ?, ora = ?, farmaco = ?, quantita = ?
-            WHERE id_paz = ? AND giorno = ? AND ora = ? AND farmaco = ?
-            """
-            cursor.execute(query, (nuovo_giorno, nuova_ora, farmaco, quantita,
-                                self._id_ref, vecchio_giorno, vecchia_ora, vecchio_farmaco))
-            conn.commit()
-            print("Assunzione aggiornata con successo.")
-        except sqlite3.Error as e:
-            print(f"Errore aggiornamento assunzione: {e}")
-        finally:
-            conn.close()
-
-    def eliminaAssunzione(self, giorno: str, ora: str, farmaco: str) -> None:
-        """
-        Elimina un'assunzione esistente.
-
-        Args:
-            giorno (str): Data dell'assunzione ('YYYY-MM-DD').
-            ora (str): Ora dell'assunzione ('HH:MM').
-            farmaco (str): Nome del farmaco assunto.
-        """
-        conn = sqlite3.connect(self._db_path)
-        cursor = conn.cursor()
-        try:
-            query = """
-            DELETE FROM ASSUNZIONE
-            WHERE id_paz = ? AND giorno = ? AND ora = ? AND farmaco = ?
-            """
-            cursor.execute(query, (self._id_ref, giorno, ora, farmaco))
-            conn.commit()
-            print("Assunzione eliminata con successo.")
-        except sqlite3.Error as e:
-            print(f"Errore eliminazione assunzione: {e}")
-        finally:
-            conn.close()
-
-
-    # ==========================================================
-    # SINTOMI
-    # ==========================================================
     def getSintomi(self) -> list:
         """
         Recupera tutti i sintomi segnalati dal paziente.
@@ -618,6 +531,128 @@ class Paziente:
             print(f"Errore eliminazione sintomo: {e}")
         finally:
             conn.close()
+
+    # ==========================================================
+    # ASSUNZIONI
+    # ==========================================================
+    def aggiungiAssunzione(self, giorno: str, ora: str, farmaco: str, quantita: str) -> None:
+        """
+        Registra un'assunzione di un farmaco da parte del paziente.
+
+        Verifica che il farmaco sia presente nella terapia del paziente prima di
+        procedere con l'inserimento.
+
+        Args:
+            giorno (str): Data dell'assunzione nel formato 'YYYY-MM-DD'.
+            ora (str): Ora dell'assunzione nel formato 'HH:MM'.
+            farmaco (str): Nome del farmaco assunto.
+            quantita (str): Quantità assunta (es. '1 compressa', '5 ml').
+        """
+        conn = sqlite3.connect(self._db_path)
+        cursor = conn.cursor()
+        try:
+            cursor.execute("SELECT 1 FROM TERAPIA WHERE id_paz = ? AND farmaco = ?", (self._id_ref, farmaco))
+            if cursor.fetchone() is None:
+                print(f"Attenzione: Il farmaco '{farmaco}' non è presente nella terapia del paziente.")
+                return
+
+            query = """
+            INSERT INTO ASSUNZIONE (id_paz, giorno, ora, farmaco, quantita)
+            VALUES (?, ?, ?, ?, ?)
+            """
+            cursor.execute(query, (self._id_ref, giorno, ora, farmaco, quantita))
+            conn.commit()
+            print("Assunzione registrata con successo.")
+        except sqlite3.Error as e:
+            print(f"Errore nella registrazione dell'assunzione: {e}")
+        finally:
+            conn.close()
+        
+        self._aggiorna_gravita_db()
+
+    def getAssunzioni(self) -> list:
+        """
+        Recupera tutte le assunzioni di farmaci del paziente.
+
+        Returns:
+            list: Lista di tuple nel formato 
+                (giorno (str), ora (str), farmaco (str), quantita (str)).
+        """
+        conn = sqlite3.connect(self._db_path)
+        cursor = conn.cursor()
+        try:
+            query = """
+            SELECT giorno, ora, farmaco, quantita
+            FROM ASSUNZIONE
+            WHERE id_paz = ?
+            ORDER BY giorno DESC, ora DESC
+            """
+            cursor.execute(query, (self._id_ref,))
+            return cursor.fetchall()
+        except sqlite3.Error as e:
+            print(f"Errore recupero assunzioni: {e}")
+            return []
+        finally:
+            conn.close()
+
+    def aggiornaAssunzione(self, vecchio_giorno: str, vecchia_ora: str, vecchio_farmaco: str, 
+                        nuovo_giorno: str, nuova_ora: str, farmaco: str, quantita: str) -> None:
+        """
+        Aggiorna un'assunzione esistente.
+
+        Args:
+            vecchio_giorno (str): Data originale ('YYYY-MM-DD').
+            vecchia_ora (str): Ora originale ('HH:MM').
+            vecchio_farmaco (str): Nome originale del farmaco.
+            nuovo_giorno (str): Nuova data ('YYYY-MM-DD').
+            nuova_ora (str): Nuova ora ('HH:MM').
+            farmaco (str): Nuovo nome del farmaco.
+            quantita (str): Nuova quantità assunta.
+        """
+        conn = sqlite3.connect(self._db_path)
+        cursor = conn.cursor()
+        try:
+            query = """
+            UPDATE ASSUNZIONE
+            SET giorno = ?, ora = ?, farmaco = ?, quantita = ?
+            WHERE id_paz = ? AND giorno = ? AND ora = ? AND farmaco = ?
+            """
+            cursor.execute(query, (nuovo_giorno, nuova_ora, farmaco, quantita,
+                                self._id_ref, vecchio_giorno, vecchia_ora, vecchio_farmaco))
+            conn.commit()
+            print("Assunzione aggiornata con successo.")
+        except sqlite3.Error as e:
+            print(f"Errore aggiornamento assunzione: {e}")
+        finally:
+            conn.close()
+        
+        self._aggiorna_gravita_db()
+
+    def eliminaAssunzione(self, giorno: str, ora: str, farmaco: str) -> None:
+        """
+        Elimina un'assunzione esistente.
+
+        Args:
+            giorno (str): Data dell'assunzione ('YYYY-MM-DD').
+            ora (str): Ora dell'assunzione ('HH:MM').
+            farmaco (str): Nome del farmaco assunto.
+        """
+        conn = sqlite3.connect(self._db_path)
+        cursor = conn.cursor()
+        try:
+            query = """
+            DELETE FROM ASSUNZIONE
+            WHERE id_paz = ? AND giorno = ? AND ora = ? AND farmaco = ?
+            """
+            cursor.execute(query, (self._id_ref, giorno, ora, farmaco))
+            conn.commit()
+            print("Assunzione eliminata con successo.")
+        except sqlite3.Error as e:
+            print(f"Errore eliminazione assunzione: {e}")
+        finally:
+            conn.close()
+        
+        self._aggiorna_gravita_db()
 
     def __str__(self) -> str:
         """

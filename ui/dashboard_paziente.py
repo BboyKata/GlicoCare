@@ -2,8 +2,8 @@ import flet as ft
 import os
 from datetime import datetime
 from src.paziente import Paziente
-from src.graph_utils import crea_grafico_glicemia_matplotlib
 from src.user import User
+from src.graph_utils import crea_grafico_glicemia_matplotlib
 from ui.registrazione import show_registrazione_page
 from ui.assunzioni import show_assunzioni_page
 from ui.sintomi import show_sintomi_page
