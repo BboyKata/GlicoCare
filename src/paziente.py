@@ -1,19 +1,29 @@
+"""
+Modello per la gestione del paziente.
+
+Questo modulo definisce la classe Paziente, che si occupa di interagire
+con il database SQLite per recuperare e modificare tutte le informazioni
+relative a un singolo paziente (anagrafica, rilevazioni, terapie, sintomi).
+"""
+
 import os
 import sqlite3
 
-class Paziente:
-    def __init__(self, id_ref, db_path="database/glicocare.db"):
-        """
-        Inizializza il paziente recuperando tutti i suoi dati dal database.
 
-        Args:
-            id_ref (int): L'id del paziente (id_paz nella tabella PAZIENTE).
-            db_path (str): Percorso del file database (default: database/glicocare.db).
-        """
+class Paziente:
+    """
+    Rappresenta un paziente e fornisce metodi per interagire con i suoi dati.
+
+    Args:
+        id_ref (int): L'ID del paziente (corrisponde a `id_paz` nella tabella PAZIENTE).
+        db_path (str, optional): Percorso del file del database SQLite. 
+            Default: "database/glicocare.db".
+    """
+
+    def __init__(self, id_ref, db_path="database/glicocare.db"):
         self._id_ref = id_ref
         self._db_path = db_path
         
-        # Variabili dove salveremo i dati
         self._cf = None
         self._nome = None
         self._cognome = None
@@ -26,22 +36,21 @@ class Paziente:
         self._gravita = None
         self._medico_id = None
         
-        # Liste per i dati recuperati
         self._rilevazioni = []
         self._terapie = []
         
-        # Carica i dati dal database appena l'oggetto viene creato
         self._carica_dati()
 
     def _carica_dati(self):
         """
-        Metodo interno (privato) che esegue le query SQL per popolare l'oggetto.
+        Carica i dati anagrafici, le rilevazioni e le terapie del paziente dal DB.
+
+        Questo metodo è privato e viene chiamato automaticamente dal costruttore.
         """
         conn = sqlite3.connect(self._db_path)
         cursor = conn.cursor()
 
         try:
-            # --- 1. Recupera i dati anagrafici e del paziente (JOIN) ---
             query_anagrafica = """
             SELECT 
                 A.CF, A.nome, A.cognome, A.sesso, A.dataNascita, A.luogoNascita,
@@ -61,7 +70,6 @@ class Paziente:
              self._data_nascita, self._luogo_nascita, self._indirizzo, 
              self._email, self._cel, self._gravita, self._medico_id) = row
 
-            # --- 2. Recupera le rilevazioni della glicemia ---
             query_rilevazioni = """
             SELECT giorno, ora, glicemia, primaDopoPasto
             FROM RILEVAZ_GIORN
@@ -71,7 +79,6 @@ class Paziente:
             cursor.execute(query_rilevazioni, (self._id_ref,))
             self._rilevazioni = cursor.fetchall()
             
-            # --- 3. Recupera le terapie del paziente ---
             query_terapie = """
             SELECT farmaco, assunzioniGiornaliere, quantita, indicazioni, id_med
             FROM TERAPIA
@@ -87,7 +94,7 @@ class Paziente:
 
     def _refresh_rilevazioni(self):
         """
-        Aggiorna la lista interna delle rilevazioni dopo una modifica.
+        Ricarica la lista delle rilevazioni dal database dopo una modifica.
         """
         conn = sqlite3.connect(self._db_path)
         cursor = conn.cursor()
@@ -106,60 +113,167 @@ class Paziente:
             conn.close()
 
     # ==========================================================
-    # METODI GETTER (Stile classico getAttributo)
+    # CALCOLO GRAVITÀ
     # ==========================================================
-    def getIdRef(self): return self._id_ref
-    def getCf(self): return self._cf
-    def getNome(self): return self._nome
-    def getCognome(self): return self._cognome
-    def getSesso(self): return self._sesso
-    def getDataNascita(self): return self._data_nascita
-    def getLuogoNascita(self): return self._luogo_nascita
-    def getIndirizzo(self): return self._indirizzo
-    def getEmail(self): return self._email
-    def getCel(self): return self._cel
-    def getGravita(self): return self._gravita
-    def getMedicoId(self): return self._medico_id
-    def getRilevazioni(self):
-        """Restituisce una lista di tuple (giorno, ora, glicemia, tipo_pasto)"""
+    def _calcola_gravita(self):
+        """
+        Calcola il numero di rilevazioni fuori soglia negli ultimi 30 giorni.
+
+        Soglie:
+        - Prima dei pasti (P): 80-130 mg/dL
+        - Dopo i pasti (D): max 180 mg/dL
+
+        Returns:
+            int: Numero di valori fuori soglia (nuova gravità).
+        """
+        conn = sqlite3.connect(self._db_path)
+        cursor = conn.cursor()
+        try:
+            query = """
+            SELECT glicemia, primaDopoPasto
+            FROM RILEVAZ_GIORN
+            WHERE id_paz = ?
+            """
+            cursor.execute(query, (self._id_ref,))
+            rilevazioni = cursor.fetchall()
+        except sqlite3.Error as e:
+            print(f"Errore calcolo gravità: {e}")
+            return 0
+        finally:
+            conn.close()
+
+        count_fuori_soglia = 0
+        
+        for glicemia, tipo_pasto in rilevazioni:
+            if tipo_pasto == 'P':
+                # Prima del pasto: deve essere tra 80 e 130
+                if glicemia < 80 or glicemia > 130:
+                    count_fuori_soglia += 1
+            elif tipo_pasto == 'D':
+                # Dopo il pasto: non deve superare 180
+                if glicemia > 180:
+                    count_fuori_soglia += 1
+        
+        return count_fuori_soglia
+
+    def _aggiorna_gravita_db(self):
+        """
+        Ricalcola la gravità e la aggiorna nel database e nell'oggetto.
+
+        Returns:
+            None
+        """
+        nuova_gravita = self._calcola_gravita()
+        
+        conn = sqlite3.connect(self._db_path)
+        cursor = conn.cursor()
+        try:
+            query = "UPDATE PAZIENTE SET gravita = ? WHERE id_paz = ?"
+            cursor.execute(query, (nuova_gravita, self._id_ref))
+            conn.commit()
+            self._gravita = nuova_gravita
+        except sqlite3.Error as e:
+            print(f"Errore aggiornamento gravità: {e}")
+        finally:
+            conn.close()
+
+    # ==========================================================
+    # GETTER
+    # ==========================================================
+    def getIdRef(self) -> int:
+        """Restituisce l'ID di riferimento del paziente."""
+        return self._id_ref
+
+    def getCf(self) -> str:
+        """Restituisce il codice fiscale del paziente."""
+        return self._cf
+
+    def getNome(self) -> str:
+        """Restituisce il nome del paziente."""
+        return self._nome
+
+    def getCognome(self) -> str:
+        """Restituisce il cognome del paziente."""
+        return self._cognome
+
+    def getSesso(self) -> str:
+        """Restituisce il sesso del paziente ('M' o 'F')."""
+        return self._sesso
+
+    def getDataNascita(self) -> str:
+        """Restituisce la data di nascita del paziente."""
+        return self._data_nascita
+
+    def getLuogoNascita(self) -> str:
+        """Restituisce il luogo di nascita del paziente."""
+        return self._luogo_nascita
+
+    def getIndirizzo(self) -> str:
+        """Restituisce l'indirizzo del paziente."""
+        return self._indirizzo
+
+    def getEmail(self) -> str:
+        """Restituisce l'email del paziente."""
+        return self._email
+
+    def getCel(self) -> str:
+        """Restituisce il numero di cellulare del paziente."""
+        return self._cel
+
+    def getGravita(self) -> int:
+        """Restituisce il livello di gravità calcolato."""
+        return self._gravita
+
+    def getMedicoId(self) -> int:
+        """Restituisce l'ID del medico di riferimento."""
+        return self._medico_id
+
+    def getRilevazioni(self) -> list:
+        """
+        Restituisce tutte le rilevazioni della glicemia del paziente.
+
+        Returns:
+            list: Lista di tuple nel formato 
+                (giorno (str), ora (str), glicemia (float), primaDopoPasto (str)).
+        """
         return self._rilevazioni
 
-    def updatePaziente(self):
-        print("Calcolo gravità etc")
-
     # ==========================================================
-    # METODI DI RECUPERO DATI (Terapie, Medico, Assunzioni)
+    # TERAPIE E MEDICO
     # ==========================================================
-    def getTerapie(self):
+    def getTerapie(self) -> list:
         """
-        Restituisce la lista completa delle terapie del paziente.
-        
+        Restituisce tutte le terapie farmacologiche del paziente.
+
         Returns:
-            list: Lista di tuple (farmaco, assunzioniGiornaliere, quantita, indicazioni, id_med)
+            list: Lista di tuple nel formato 
+                (farmaco (str), assunzioniGiornaliere (int), quantita (str), 
+                 indicazioni (str), id_med (int)).
         """
         return self._terapie
 
-    def getTerapieByName(self, farmaco):
+    def getTerapieByName(self, farmaco: str) -> tuple:
         """
-        Recupera una specifica terapia tramite il nome del farmaco.
+        Cerca una terapia specifica tramite il nome del farmaco.
 
         Args:
-            farmaco_id (str): Il nome del farmaco (chiave primaria con id_paz).
+            farmaco (str): Il nome del farmaco da cercare.
 
         Returns:
-            tuple|None: Tuple con i dati della terapia (farmaco, assunzioniGiornaliere, quantita, indicazioni, id_med) o None se non trovata.
+            tuple | None: Tupla della terapia se trovata, altrimenti None.
         """
         for terapia in self._terapie:
             if terapia[0] == farmaco:
                 return terapia
         return None
 
-    def getMedicoRiferimento(self):
+    def getMedicoRiferimento(self) -> tuple:
         """
         Recupera i dati anagrafici del medico di riferimento del paziente.
 
         Returns:
-            tuple: (nome, cognome, email, cel) del medico, oppure None se non trovato.
+            tuple | None: Tupla nel formato (nome, cognome, email, cel) 
+                del medico, oppure None se non trovato.
         """
         conn = sqlite3.connect(self._db_path)
         cursor = conn.cursor()
@@ -180,17 +294,23 @@ class Paziente:
             conn.close()
 
     # ==========================================================
-    # METODI DI INSERIMENTO DATI
+    # INSERIMENTO / MODIFICA / ELIMINAZIONE RILEVAZIONI
     # ==========================================================
-    def aggiungiRilevazioneGiornaliera(self, giorno, ora, glicemia, primaDopoPasto):
+    def aggiungiRilevazioneGiornaliera(self, giorno: str, ora: str, glicemia: float, primaDopoPasto: str) -> None:
         """
         Aggiunge una nuova rilevazione della glicemia.
 
+        Dopo l'inserimento, la lista delle rilevazioni viene ricaricata e
+        la gravità del paziente viene ricalcolata.
+
         Args:
-            giorno (str): Data in formato 'YYYY-MM-DD'.
-            ora (str): Ora in formato 'HH:MM'.
-            glicemia (float): Valore della glicemia.
+            giorno (str): Data della rilevazione nel formato 'YYYY-MM-DD'.
+            ora (str): Ora della rilevazione nel formato 'HH:MM'.
+            glicemia (float): Valore della glicemia in mg/dL.
             primaDopoPasto (str): 'P' per prima del pasto, 'D' per dopo il pasto.
+
+        Raises:
+            sqlite3.IntegrityError: Se esiste già una rilevazione con la stessa data e ora.
         """
         conn = sqlite3.connect(self._db_path)
         cursor = conn.cursor()
@@ -202,19 +322,21 @@ class Paziente:
             cursor.execute(query, (self._id_ref, giorno, ora, glicemia, primaDopoPasto))
             conn.commit()
             print("Rilevazione aggiunta con successo.")
-            
-            # Aggiorna la lista interna per la UI
-            self._refresh_rilevazioni()
-            
         except sqlite3.Error as e:
             print(f"Errore nell'aggiunta della rilevazione: {e}")
         finally:
             conn.close()
-
-    def aggiornaRilevazioneGiornaliera(self, vecchio_giorno, vecchia_ora, nuovo_giorno, nuova_ora, glicemia, primaDopoPasto):
-        """
-        Aggiorna una rilevazione esistente. Se data/ora sono cambiate, le modifica.
         
+        self._refresh_rilevazioni()
+        self._aggiorna_gravita_db()
+
+    def aggiornaRilevazioneGiornaliera(self, vecchio_giorno: str, vecchia_ora: str, nuovo_giorno: str, nuova_ora: str, glicemia: float, primaDopoPasto: str) -> None:
+        """
+        Aggiorna una rilevazione della glicemia esistente.
+
+        Dopo l'aggiornamento, la lista delle rilevazioni viene ricaricata e
+        la gravità del paziente viene ricalcolata.
+
         Args:
             vecchio_giorno (str): Data originale nel formato 'YYYY-MM-DD'.
             vecchia_ora (str): Ora originale nel formato 'HH:MM'.
@@ -234,22 +356,24 @@ class Paziente:
             cursor.execute(query, (nuovo_giorno, nuova_ora, glicemia, primaDopoPasto, self._id_ref, vecchio_giorno, vecchia_ora))
             conn.commit()
             print("Rilevazione aggiornata con successo.")
-            
-            # Aggiorna la lista interna per la UI
-            self._refresh_rilevazioni()
-            
         except sqlite3.Error as e:
             print(f"Errore nell'aggiornamento della rilevazione: {e}")
         finally:
             conn.close()
+        
+        self._refresh_rilevazioni()
+        self._aggiorna_gravita_db()
 
-    def eliminaRilevazioneGiornaliera(self, giorno, ora):
+    def eliminaRilevazioneGiornaliera(self, giorno: str, ora: str) -> None:
         """
         Elimina una rilevazione della glicemia.
 
+        Dopo l'eliminazione, la lista delle rilevazioni viene ricaricata e
+        la gravità del paziente viene ricalcolata.
+
         Args:
-            giorno (str): Data nel formato 'YYYY-MM-DD'.
-            ora (str): Ora nel formato 'HH:MM'.
+            giorno (str): Data della rilevazione da eliminare ('YYYY-MM-DD').
+            ora (str): Ora della rilevazione da eliminare ('HH:MM').
         """
         conn = sqlite3.connect(self._db_path)
         cursor = conn.cursor()
@@ -261,24 +385,26 @@ class Paziente:
             cursor.execute(query, (self._id_ref, giorno, ora))
             conn.commit()
             print("Rilevazione eliminata con successo.")
-            
-            # Aggiorna la lista interna per la UI
-            self._refresh_rilevazioni()
-            
         except sqlite3.Error as e:
             print(f"Errore nell'eliminazione della rilevazione: {e}")
         finally:
             conn.close()
+        
+        self._refresh_rilevazioni()
+        self._aggiorna_gravita_db()
 
-    def aggiungiSintomo(self, giorno, ora, sintomo, terapia=None):
+    # ==========================================================
+    # SINTOMI E ASSUNZIONI
+    # ==========================================================
+    def aggiungiSintomo(self, giorno: str, ora: str, sintomo: str, terapia: str = None) -> None:
         """
-        Aggiunge un nuovo sintomo riportato dal paziente.
+        Aggiunge un nuovo sintomo segnalato dal paziente.
 
         Args:
-            giorno (str): Data in formato 'YYYY-MM-DD'.
-            ora (str): Ora in formato 'HH:MM'.
+            giorno (str): Data del sintomo nel formato 'YYYY-MM-DD'.
+            ora (str): Ora del sintomo nel formato 'HH:MM'.
             sintomo (str): Descrizione del sintomo.
-            terapia (str, optional): Nome del farmaco associato al sintomo (se presente).
+            terapia (str, optional): Nome del farmaco associato, se presente.
         """
         conn = sqlite3.connect(self._db_path)
         cursor = conn.cursor()
@@ -295,20 +421,22 @@ class Paziente:
         finally:
             conn.close()
 
-    def aggiungiAssunzione(self, giorno, ora, farmaco, quantita):
+    def aggiungiAssunzione(self, giorno: str, ora: str, farmaco: str, quantita: str) -> None:
         """
-        Registra l'assunzione di un farmaco da parte del paziente.
+        Registra un'assunzione di un farmaco da parte del paziente.
+
+        Verifica che il farmaco sia presente nella terapia del paziente prima di
+        procedere con l'inserimento.
 
         Args:
-            giorno (str): Data in formato 'YYYY-MM-DD'.
-            ora (str): Ora in formato 'HH:MM'.
+            giorno (str): Data dell'assunzione nel formato 'YYYY-MM-DD'.
+            ora (str): Ora dell'assunzione nel formato 'HH:MM'.
             farmaco (str): Nome del farmaco assunto.
             quantita (str): Quantità assunta (es. '1 compressa', '5 ml').
         """
         conn = sqlite3.connect(self._db_path)
         cursor = conn.cursor()
         try:
-            # Verifica che il farmaco esista nella terapia del paziente
             cursor.execute("SELECT 1 FROM TERAPIA WHERE id_paz = ? AND farmaco = ?", (self._id_ref, farmaco))
             if cursor.fetchone() is None:
                 print(f"Attenzione: Il farmaco '{farmaco}' non è presente nella terapia del paziente.")
@@ -326,8 +454,178 @@ class Paziente:
         finally:
             conn.close()
 
-    # --- Metodo per stampare un riepilogo del paziente ---
-    def __str__(self):
+    # ==========================================================
+    # ASSUNZIONI
+    # ==========================================================
+    def getAssunzioni(self) -> list:
+        """
+        Recupera tutte le assunzioni di farmaci del paziente.
+
+        Returns:
+            list: Lista di tuple nel formato 
+                (giorno (str), ora (str), farmaco (str), quantita (str)).
+        """
+        conn = sqlite3.connect(self._db_path)
+        cursor = conn.cursor()
+        try:
+            query = """
+            SELECT giorno, ora, farmaco, quantita
+            FROM ASSUNZIONE
+            WHERE id_paz = ?
+            ORDER BY giorno DESC, ora DESC
+            """
+            cursor.execute(query, (self._id_ref,))
+            return cursor.fetchall()
+        except sqlite3.Error as e:
+            print(f"Errore recupero assunzioni: {e}")
+            return []
+        finally:
+            conn.close()
+
+    def aggiornaAssunzione(self, vecchio_giorno: str, vecchia_ora: str, vecchio_farmaco: str, 
+                        nuovo_giorno: str, nuova_ora: str, farmaco: str, quantita: str) -> None:
+        """
+        Aggiorna un'assunzione esistente.
+
+        Args:
+            vecchio_giorno (str): Data originale ('YYYY-MM-DD').
+            vecchia_ora (str): Ora originale ('HH:MM').
+            vecchio_farmaco (str): Nome originale del farmaco.
+            nuovo_giorno (str): Nuova data ('YYYY-MM-DD').
+            nuova_ora (str): Nuova ora ('HH:MM').
+            farmaco (str): Nuovo nome del farmaco.
+            quantita (str): Nuova quantità assunta.
+        """
+        conn = sqlite3.connect(self._db_path)
+        cursor = conn.cursor()
+        try:
+            query = """
+            UPDATE ASSUNZIONE
+            SET giorno = ?, ora = ?, farmaco = ?, quantita = ?
+            WHERE id_paz = ? AND giorno = ? AND ora = ? AND farmaco = ?
+            """
+            cursor.execute(query, (nuovo_giorno, nuova_ora, farmaco, quantita,
+                                self._id_ref, vecchio_giorno, vecchia_ora, vecchio_farmaco))
+            conn.commit()
+            print("Assunzione aggiornata con successo.")
+        except sqlite3.Error as e:
+            print(f"Errore aggiornamento assunzione: {e}")
+        finally:
+            conn.close()
+
+    def eliminaAssunzione(self, giorno: str, ora: str, farmaco: str) -> None:
+        """
+        Elimina un'assunzione esistente.
+
+        Args:
+            giorno (str): Data dell'assunzione ('YYYY-MM-DD').
+            ora (str): Ora dell'assunzione ('HH:MM').
+            farmaco (str): Nome del farmaco assunto.
+        """
+        conn = sqlite3.connect(self._db_path)
+        cursor = conn.cursor()
+        try:
+            query = """
+            DELETE FROM ASSUNZIONE
+            WHERE id_paz = ? AND giorno = ? AND ora = ? AND farmaco = ?
+            """
+            cursor.execute(query, (self._id_ref, giorno, ora, farmaco))
+            conn.commit()
+            print("Assunzione eliminata con successo.")
+        except sqlite3.Error as e:
+            print(f"Errore eliminazione assunzione: {e}")
+        finally:
+            conn.close()
+
+
+    # ==========================================================
+    # SINTOMI
+    # ==========================================================
+    def getSintomi(self) -> list:
+        """
+        Recupera tutti i sintomi segnalati dal paziente.
+
+        Returns:
+            list: Lista di tuple nel formato 
+                (giorno (str), ora (str), sintomo (str), terapia (str|None)).
+        """
+        conn = sqlite3.connect(self._db_path)
+        cursor = conn.cursor()
+        try:
+            query = """
+            SELECT giorno, ora, sintomo, terapia
+            FROM SINTOMO
+            WHERE id_paz = ?
+            ORDER BY giorno DESC, ora DESC
+            """
+            cursor.execute(query, (self._id_ref,))
+            return cursor.fetchall()
+        except sqlite3.Error as e:
+            print(f"Errore recupero sintomi: {e}")
+            return []
+        finally:
+            conn.close()
+
+    def aggiornaSintomo(self, vecchio_giorno: str, vecchia_ora: str, 
+                        nuovo_giorno: str, nuova_ora: str, sintomo: str, terapia: str) -> None:
+        """
+        Aggiorna un sintomo esistente.
+
+        Args:
+            vecchio_giorno (str): Data originale ('YYYY-MM-DD').
+            vecchia_ora (str): Ora originale ('HH:MM').
+            nuovo_giorno (str): Nuova data ('YYYY-MM-DD').
+            nuova_ora (str): Nuova ora ('HH:MM').
+            sintomo (str): Nuova descrizione del sintomo.
+            terapia (str): Nuovo farmaco associato (può essere None).
+        """
+        conn = sqlite3.connect(self._db_path)
+        cursor = conn.cursor()
+        try:
+            query = """
+            UPDATE SINTOMO
+            SET giorno = ?, ora = ?, sintomo = ?, terapia = ?
+            WHERE id_paz = ? AND giorno = ? AND ora = ?
+            """
+            cursor.execute(query, (nuovo_giorno, nuova_ora, sintomo, terapia,
+                                self._id_ref, vecchio_giorno, vecchia_ora))
+            conn.commit()
+            print("Sintomo aggiornato con successo.")
+        except sqlite3.Error as e:
+            print(f"Errore aggiornamento sintomo: {e}")
+        finally:
+            conn.close()
+
+    def eliminaSintomo(self, giorno: str, ora: str) -> None:
+        """
+        Elimina un sintomo esistente.
+
+        Args:
+            giorno (str): Data del sintomo ('YYYY-MM-DD').
+            ora (str): Ora del sintomo ('HH:MM').
+        """
+        conn = sqlite3.connect(self._db_path)
+        cursor = conn.cursor()
+        try:
+            query = """
+            DELETE FROM SINTOMO
+            WHERE id_paz = ? AND giorno = ? AND ora = ?
+            """
+            cursor.execute(query, (self._id_ref, giorno, ora))
+            conn.commit()
+            print("Sintomo eliminato con successo.")
+        except sqlite3.Error as e:
+            print(f"Errore eliminazione sintomo: {e}")
+        finally:
+            conn.close()
+
+    def __str__(self) -> str:
+        """
+        Restituisce una rappresentazione leggibile del paziente.
+
+        Returns:
+            str: Stringa riassuntiva dei dati del paziente.
+        """
         return (f"Paziente: {self._nome} {self._cognome} (CF: {self._cf})\n"
                 f"Gravità: {self._gravita}\n"
                 f"Medico ID: {self._medico_id}")
