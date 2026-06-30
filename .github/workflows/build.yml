@@ -30,6 +30,8 @@ jobs:
       if: matrix.os == 'ubuntu-latest'
       run: |
         flet pack main.py --name "GlicoCare" --icon "img/glicocare.png" --add-data "database/schema.sql:database" --add-data "database/popola_test.sql:database"
+        # Rinomina il file .tar.gz generato in un nome standard che possiamo trovare
+        mv dist/*.tar.gz dist/GlicoCare-Linux.tar.gz
 
     - name: Build with Flet Pack (Windows)
       if: matrix.os == 'windows-latest'
@@ -41,7 +43,7 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: GlicoCare-Linux
-        path: dist/*.tar.gz
+        path: dist/GlicoCare-Linux.tar.gz
 
     - name: Upload artifact (Windows)
       if: matrix.os == 'windows-latest'
