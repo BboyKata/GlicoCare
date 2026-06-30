@@ -3,7 +3,7 @@ GlicoCare - Applicazione Desktop per il Monitoraggio della Glicemia.
 """
 
 import flet as ft
-import os
+import os,sys
 from ui.dashboard_medico import show_doctor_dashboard
 from src.user import User, CredenzialiNonValide
 from ui.dashboard_paziente import show_patient_dashboard
@@ -106,8 +106,14 @@ def show_login_page(page: ft.Page):
     page.window.maximized = True  # <-- AGGIUNGI QUESTA RIGA
     # --------------------------------------------
     
+    if getattr(sys, 'frozen', False):
+        # Se siamo nell'eseguibile compilato, usa sys._MEIPASS
+        base_path = sys._MEIPASS
+    else:
+        # Se siamo in sviluppo, usa il percorso normale
+        base_path = os.path.dirname(os.path.abspath(__file__))
 
-    logo_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "img", "glicocare.png")
+    logo_path = os.path.join(base_path, "img", "glicocare.png")
     left_col = ft.Container(
         content=ft.Column([
             ft.Image(src=logo_path, width=320, height=320),
