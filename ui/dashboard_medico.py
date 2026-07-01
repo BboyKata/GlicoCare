@@ -1,4 +1,5 @@
 import flet as ft
+import os
 from src.user import User
 from src.medico import Medico
 from src.paziente import Paziente
@@ -6,15 +7,18 @@ from ui.dettaglio_paziente import show_paziente_detail
 from ui.log_page import show_log_page
 
 
-def show_doctor_dashboard(page: ft.Page, user: User):
-    from main import show_login_page
+def show_doctor_dashboard(page: ft.Page, user: User, db_path: str = None):
+    # Usa il percorso passato, oppure un fallback
+    if db_path is None:
+        home = os.path.expanduser("~")
+        db_path = os.path.join(home, ".glicocare", "glicocare.db")
 
     page.controls.clear()
     page.title = "GlicoCare - Medico"
     page.bgcolor = "#F8FAFC"
     page.padding = 20
 
-    medico = Medico(user.id_ref)
+    medico = Medico(user.id_ref, db_path)
     pazienti = medico.getPazientiConDettaglio()
     stats = medico.getStatistiche()
 
@@ -25,14 +29,14 @@ def show_doctor_dashboard(page: ft.Page, user: User):
             ft.Container(
                 width=120, height=36, bgcolor="#6366f1", border_radius=8,
                 alignment=ft.alignment.center,
-                on_click=lambda e: show_log_page(page, user),
+                on_click=lambda e: show_log_page(page, user, db_path=db_path),
                 content=ft.Text("Log", size=13, color="white", weight=ft.FontWeight.BOLD)
             ),
             ft.Container(width=8),
             ft.Container(
                 width=110, height=36, bgcolor="#ef4444", border_radius=8,
                 alignment=ft.alignment.center,
-                on_click=lambda e: show_login_page(page),
+                on_click=lambda e: show_login_page(page),  # <--- RIMOSSO L'IMPORT IN ALTO
                 content=ft.Text("Logout", size=13, color="white", weight=ft.FontWeight.BOLD)
             ),
         ])
@@ -77,7 +81,7 @@ def show_doctor_dashboard(page: ft.Page, user: User):
                     ft.IconButton(
                         icon=ft.Icons.VISIBILITY, icon_color="#2563eb", icon_size=22,
                         tooltip="Visualizza paziente",
-                        on_click=lambda e, pid=paz['id']: show_paziente_detail(page, user, pid)
+                        on_click=lambda e, pid=paz['id']: show_paziente_detail(page, user, pid, db_path=db_path)
                     )
                 ], alignment=ft.MainAxisAlignment.START, vertical_alignment=ft.CrossAxisAlignment.CENTER)
             )
@@ -141,7 +145,6 @@ def show_doctor_dashboard(page: ft.Page, user: User):
             ft.Container(height=15),
 
             # Gravità media
-            # Gravità media (SENZA ombra)
             ft.Container(
                 padding=12,
                 bgcolor="white",
@@ -203,3 +206,11 @@ def _card_stat(titolo: str, valore: str, colore: str, icona,
             ft.Text(titolo, size=title_size, color="#64748b", text_align=ft.TextAlign.CENTER),
         ], alignment=ft.MainAxisAlignment.CENTER, horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=4)
     )
+
+
+# --- SISTEMAZIONE DELL'IMPORT CIRCOLARE ---
+# Invece di importare all'inizio, definiamo la funzione qui sotto e la passiamo al Logout
+def show_login_page(page: ft.Page):
+    # Importo locale per evitare il loop
+    from main import show_login_page as main_login
+    main_login(page)

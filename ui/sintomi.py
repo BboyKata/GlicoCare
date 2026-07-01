@@ -5,7 +5,6 @@ from src.user import User
 
 
 def show_sintomi_page(page: ft.Page, user):
-    """Pagina per gestire le segnalazioni (sintomi)."""
     from ui.dashboard_paziente import show_patient_dashboard
 
     page.controls.clear()
@@ -15,33 +14,35 @@ def show_sintomi_page(page: ft.Page, user):
     page.bgcolor = "#F8FAFC"
     page.padding = 20
 
+    # Recupera le segnalazioni: (giorno, ora, sintomo, terapia)
     segnalazioni_raw = paziente.getSegnalazioni()
     terapie = paziente.getTerapie()
-    segnalazioni_list = [{'giorno_inizio': gi, 'giorno_fine': gf, 'descrizione': d, 'terapia': t} 
-                         for gi, gf, d, t in segnalazioni_raw]
+    
+    segnalazioni_list = [{'giorno': g, 'ora': o, 'sintomo': s, 'terapia': t} 
+                         for g, o, s, t in segnalazioni_raw]
     indice_modifica = -1
 
     terapia_options = [ft.dropdown.Option("", "Nessuna")] + [ft.dropdown.Option(t[0], t[0]) for t in terapie]
 
-    input_data_inizio = ft.TextField(label="Data inizio", hint_text="dd-mm-yyyy", width=180, text_size=15)
-    input_data_fine = ft.TextField(label="Data fine", hint_text="dd-mm-yyyy", width=180, text_size=15)
-    input_descrizione = ft.TextField(
-        hint_text="Descrivi il sintomo o la segnalazione...", 
+    input_giorno = ft.TextField(label="Data", hint_text="dd-mm-yyyy", width=180, text_size=15)
+    input_ora = ft.TextField(label="Ora", hint_text="HH:MM", width=180, text_size=15)
+    input_sintomo = ft.TextField(
+        hint_text="Descrivi il sintomo...", 
         width=450, multiline=True, min_lines=4, max_lines=6, text_size=15
     )
     input_terapia = ft.Dropdown(options=terapia_options, width=300, label="Farmaco associato (opzionale)")
 
-    def apri_date_picker_inizio(e):
+    def apri_date_picker(e):
         def on_change(e):
-            input_data_inizio.value = e.control.value.strftime("%d-%m-%Y")
-            input_data_inizio.update()
+            input_giorno.value = e.control.value.strftime("%d-%m-%Y")
+            input_giorno.update()
         page.open(ft.DatePicker(on_change=on_change))
 
-    def apri_date_picker_fine(e):
+    def apri_time_picker(e):
         def on_change(e):
-            input_data_fine.value = e.control.value.strftime("%d-%m-%Y")
-            input_data_fine.update()
-        page.open(ft.DatePicker(on_change=on_change))
+            input_ora.value = f"{e.control.value.hour:02d}:{e.control.value.minute:02d}"
+            input_ora.update()
+        page.open(ft.TimePicker(on_change=on_change))
 
     def popup_ok(msg):
         def chiudi(e):
@@ -63,19 +64,16 @@ def show_sintomi_page(page: ft.Page, user):
         page.open(d)
 
     def popup_conferma_elimina(idx):
-        """Popup di conferma prima di eliminare una segnalazione."""
         s = segnalazioni_list[idx]
         try:
-            di = datetime.strptime(s['giorno_inizio'], "%Y-%m-%d").strftime("%d-%m-%Y")
-            df = datetime.strptime(s['giorno_fine'], "%Y-%m-%d").strftime("%d-%m-%Y")
+            dg = datetime.strptime(s['giorno'], "%Y-%m-%d").strftime("%d-%m-%Y")
         except:
-            di = s['giorno_inizio']
-            df = s['giorno_fine']
+            dg = s['giorno']
 
         def elimina(e):
             page.close(dialog)
             try:
-                paziente.eliminaSegnalazione(s['giorno_inizio'], s['giorno_fine'])
+                paziente.eliminaSegnalazione(s['giorno'], s['ora'])
                 popup_ok("Segnalazione eliminata con successo!")
             except Exception as ex:
                 popup_err(str(ex))
@@ -83,9 +81,9 @@ def show_sintomi_page(page: ft.Page, user):
         dialog = ft.AlertDialog(
             title=ft.Text("🗑️ Elimina Segnalazione", color="#ef4444"),
             content=ft.Text(
-                f"Sei sicuro di voler eliminare la segnalazione\n"
-                f"dal {di} al {df}?\n"
-                f"Descrizione: {s['descrizione']}\n\n"
+                f"Sei sicuro di voler eliminare la segnalazione del\n"
+                f"{dg} alle {s['ora']}?\n"
+                f"Sintomo: {s['sintomo']}\n\n"
                 f"Questa azione è irreversibile.",
                 size=15
             ),
@@ -101,47 +99,39 @@ def show_sintomi_page(page: ft.Page, user):
         indice_modifica = idx
         s = segnalazioni_list[idx]
         try:
-            input_data_inizio.value = datetime.strptime(s['giorno_inizio'], "%Y-%m-%d").strftime("%d-%m-%Y")
+            input_giorno.value = datetime.strptime(s['giorno'], "%Y-%m-%d").strftime("%d-%m-%Y")
         except:
-            input_data_inizio.value = s['giorno_inizio']
-        try:
-            input_data_fine.value = datetime.strptime(s['giorno_fine'], "%Y-%m-%d").strftime("%d-%m-%Y")
-        except:
-            input_data_fine.value = s['giorno_fine']
-        input_descrizione.value = s['descrizione']
+            input_giorno.value = s['giorno']
+        input_ora.value = s['ora']
+        input_sintomo.value = s['sintomo']
         input_terapia.value = s['terapia'] if s['terapia'] else ""
-        input_data_inizio.update(); input_data_fine.update(); input_descrizione.update(); input_terapia.update()
+        input_giorno.update(); input_ora.update(); input_sintomo.update(); input_terapia.update()
 
     def salva(e):
         nonlocal indice_modifica
-        if not all([input_data_inizio.value, input_data_fine.value, input_descrizione.value]):
-            popup_err("Data inizio, data fine e descrizione sono obbligatori.")
+        if not all([input_giorno.value, input_ora.value, input_sintomo.value]):
+            popup_err("Data, ora e descrizione sono obbligatori.")
             return
         try:
-            ndi = datetime.strptime(input_data_inizio.value, "%d-%m-%Y").strftime("%Y-%m-%d")
-            ndf = datetime.strptime(input_data_fine.value, "%d-%m-%Y").strftime("%Y-%m-%d")
+            nd = datetime.strptime(input_giorno.value, "%d-%m-%Y").strftime("%Y-%m-%d")
+            no = datetime.strptime(input_ora.value, "%H:%M").strftime("%H:%M")
         except:
-            popup_err("Date non valide. Usa il formato dd-mm-yyyy.")
-            return
-        
-        # Verifica che data fine >= data inizio
-        if ndf < ndi:
-            popup_err("La data di fine non può essere precedente alla data di inizio.")
+            popup_err("Data o ora non validi. Usa dd-mm-yyyy e HH:MM.")
             return
 
         terapia_val = input_terapia.value if input_terapia.value else None
 
         if indice_modifica == -1:
             try:
-                paziente.aggiungiSegnalazione(ndi, ndf, input_descrizione.value, terapia_val)
+                paziente.aggiungiSegnalazione(nd, no, input_sintomo.value, terapia_val)
                 popup_ok("Segnalazione registrata!")
             except Exception as ex:
                 popup_err(str(ex))
         else:
             v = segnalazioni_list[indice_modifica]
             try:
-                paziente.aggiornaSegnalazione(v['giorno_inizio'], v['giorno_fine'], 
-                                              ndi, ndf, input_descrizione.value, terapia_val)
+                paziente.aggiornaSegnalazione(v['giorno'], v['ora'], 
+                                              nd, no, input_sintomo.value, terapia_val)
                 popup_ok("Segnalazione aggiornata!")
             except Exception as ex:
                 popup_err(str(ex))
@@ -150,21 +140,10 @@ def show_sintomi_page(page: ft.Page, user):
     items = []
     for idx, s in enumerate(segnalazioni_list):
         try:
-            di = datetime.strptime(s['giorno_inizio'], "%Y-%m-%d").strftime("%d-%m-%Y")
-            df = datetime.strptime(s['giorno_fine'], "%Y-%m-%d").strftime("%d-%m-%Y")
+            dg = datetime.strptime(s['giorno'], "%Y-%m-%d").strftime("%d-%m-%Y")
         except:
-            di = s['giorno_inizio']
-            df = s['giorno_fine']
+            dg = s['giorno']
         terapia_str = f" — Farmaco: {s['terapia']}" if s['terapia'] else ""
-        
-        # Calcola durata
-        try:
-            d1 = datetime.strptime(s['giorno_inizio'], "%Y-%m-%d")
-            d2 = datetime.strptime(s['giorno_fine'], "%Y-%m-%d")
-            durata = (d2 - d1).days + 1
-            durata_str = f"{durata} giorno{'i' if durata != 1 else ''}"
-        except:
-            durata_str = "N/D"
         
         items.append(
             ft.Container(
@@ -173,8 +152,8 @@ def show_sintomi_page(page: ft.Page, user):
                 shadow=ft.BoxShadow(blur_radius=8, color="rgba(0,0,0,0.05)"),
                 content=ft.Row([
                     ft.Column([
-                        ft.Text(f"{di} → {df} ({durata_str})", weight=ft.FontWeight.BOLD, size=15, color="#1e293b"),
-                        ft.Text(f"{s['descrizione']}{terapia_str}", size=14, color="#475569")
+                        ft.Text(f"{dg} - {s['ora']}", weight=ft.FontWeight.BOLD, size=15, color="#1e293b"),
+                        ft.Text(f"{s['sintomo']}{terapia_str}", size=14, color="#475569")
                     ], expand=True),
                     ft.IconButton(
                         icon=ft.Icons.EDIT, icon_color="#f59e0b",
@@ -206,24 +185,17 @@ def show_sintomi_page(page: ft.Page, user):
                 ),
                 ft.Text("Nuova Segnalazione", size=26, weight=ft.FontWeight.BOLD),
                 ft.Divider(), ft.Container(height=20),
-                # Data inizio e fine sulla stessa linea
                 ft.Row([
-                    ft.Text("Inizio:", size=15, weight=ft.FontWeight.BOLD),
-                    input_data_inizio,
-                    ft.IconButton(icon=ft.Icons.CALENDAR_MONTH, on_click=apri_date_picker_inizio, icon_color="#f59e0b"),
-                    ft.Text("Fine:", size=15, weight=ft.FontWeight.BOLD),
-                    input_data_fine,
-                    ft.IconButton(icon=ft.Icons.CALENDAR_MONTH, on_click=apri_date_picker_fine, icon_color="#f59e0b"),
+                    ft.Text("Data:", size=15, weight=ft.FontWeight.BOLD), input_giorno,
+                    ft.IconButton(icon=ft.Icons.CALENDAR_MONTH, on_click=apri_date_picker, icon_color="#f59e0b"),
+                    ft.Text("Ora:", size=15, weight=ft.FontWeight.BOLD), input_ora,
+                    ft.IconButton(icon=ft.Icons.ACCESS_TIME, on_click=apri_time_picker, icon_color="#f59e0b"),
                 ], alignment=ft.MainAxisAlignment.CENTER),
                 ft.Container(height=15),
-                ft.Row([
-                    ft.Text("Farmaco associato:", size=15, weight=ft.FontWeight.BOLD), 
-                    input_terapia
-                ], alignment=ft.MainAxisAlignment.CENTER),
+                ft.Row([ft.Text("Farmaco associato:", size=15, weight=ft.FontWeight.BOLD), input_terapia], alignment=ft.MainAxisAlignment.CENTER),
                 ft.Container(height=15),
-                ft.Text("Descrizione:", size=15, weight=ft.FontWeight.BOLD),
-                ft.Container(height=5), 
-                input_descrizione,
+                ft.Text("Descrizione sintomo:", size=15, weight=ft.FontWeight.BOLD),
+                ft.Container(height=5), input_sintomo,
                 ft.Container(height=25),
                 ft.Container(
                     width=300, height=55, bgcolor="#f59e0b", border_radius=12,

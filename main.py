@@ -12,14 +12,6 @@ from src.user import User, CredenzialiNonValide
 from ui.dashboard_paziente import show_patient_dashboard
 
 
-def get_base_path():
-    """Restituisce il percorso base per le risorse (immagini, schema SQL)."""
-    if getattr(sys, 'frozen', False):
-        return sys._MEIPASS
-    else:
-        return os.path.dirname(os.path.abspath(__file__))
-
-
 def get_data_path():
     """
     Restituisce un percorso scrivibile per i dati utente.
@@ -31,29 +23,51 @@ def get_data_path():
     return data_dir
 
 
-# Percorso del database (UNIFICATO in una cartella sicura)
+# Percorso del database (nella cartella utente)
 DATA_PATH = get_data_path()
 db = os.path.join(DATA_PATH, "glicocare.db")
 
 
 def init_database():
-    # Percorsi delle risorse (schema e popolamento)
-    base_path = get_base_path()
-    schema_path = os.path.join(base_path, "database", "schema.sql")
-    popola_path = os.path.join(base_path, "database", "popola_test.sql")
+    # Usa la cartella dove si trova main.py
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    schema_path = os.path.join(script_dir, "database", "schema.sql")
+    popola_path = os.path.join(script_dir, "database", "popola_test.sql")
+
+    # (Opzionale) Se vuoi la cancellazione automatica del db corrotto, tieni questo blocco.
+    # Se vuoi partire pulito, lascialo.
+    if os.path.exists(db):
+        try:
+            conn = sqlite3.connect(db)
+            cursor = conn.cursor()
+            cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='PAZIENTE'")
+            if cursor.fetchone() is None:
+                conn.close()
+                os.remove(db)
+            else:
+                conn.close()
+        except:
+            pass
     
     conn = sqlite3.connect(db)
     cursor = conn.cursor()
     cursor.execute("PRAGMA foreign_keys = ON")
     
-    with open(schema_path, "r") as f:
-        cursor.executescript(f.read())
+    try:
+        with open(schema_path, "r", encoding="utf-8") as f:
+            cursor.executescript(f.read())
+    except FileNotFoundError:
+        print(f"ERRORE FATALE: File schema.sql non trovato in {schema_path}")
+        return
     
     cursor.execute("SELECT COUNT(*) FROM PAZIENTE")
     if cursor.fetchone()[0] == 0:
-        with open(popola_path, "r") as f:
-            cursor.executescript(f.read())
-        print(f"Database popolato con dati di test in: {db}")
+        try:
+            with open(popola_path, "r", encoding="utf-8") as f:
+                cursor.executescript(f.read())
+            print(f"Database popolato con dati di test in: {db}")
+        except FileNotFoundError:
+            print(f"ERRORE: File popola_test.sql non trovato in {popola_path}")
     else:
         print(f"Database già popolato in: {db}")
     
@@ -61,6 +75,7 @@ def init_database():
     conn.close()
 
 
+# In main.py
 def handle_login(e: ft.ControlEvent):
     global username_field, password_field, error_label
 
@@ -85,9 +100,10 @@ def handle_login(e: ft.ControlEvent):
     try:
         user = User(username, password, db)
         if user.is_paziente():
-            show_patient_dashboard(e.page, user)
+            # PASSIAMO IL PERCORSO 'db' ANCHE ALLA FUNZIONE DELLA DASHBOARD
+            show_patient_dashboard(e.page, user, db_path=db) 
         elif user.is_medico():
-            show_doctor_dashboard(e.page, user)
+            show_doctor_dashboard(e.page, user, db_path=db)
     except CredenzialiNonValide:
         try:
             error_label.value = "Username o password errati"
@@ -100,6 +116,7 @@ def handle_login(e: ft.ControlEvent):
             error_label.value = f"Errore: {str(ex)}"
             error_label.color = "red"
             error_label.update()
+            error_label.selectable = True
         except Exception:
             pass
 
@@ -117,9 +134,8 @@ def show_login_page(page: ft.Page):
     page.window.resizable = True
     page.window.maximized = True
     
-    # Percorso del logo
-    base_path = get_base_path()
-    logo_path = os.path.join(base_path, "img", "glicocare.png")
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    logo_path = os.path.join(script_dir, "img", "glicocare.png")
     
     left_col = ft.Container(
         content=ft.Column([
@@ -132,7 +148,7 @@ def show_login_page(page: ft.Page):
 
     username_field = ft.TextField(label="Username", width=400, text_size=16, border_color="#cbd5e1", on_submit=handle_login)
     password_field = ft.TextField(label="Password", password=True, can_reveal_password=True, width=400, text_size=16, border_color="#cbd5e1", on_submit=handle_login)
-    error_label = ft.Text("", size=14)
+    error_label = ft.Text("", size=14, selectable=True )
     login_btn = ft.Button(content=ft.Text("Accedi", size=18, weight=ft.FontWeight.BOLD, color="white"), width=400, height=55, bgcolor="#2563eb", on_click=handle_login)
 
     right_col = ft.Container(
@@ -155,11 +171,13 @@ def show_login_page(page: ft.Page):
 
 
 def main(page: ft.Page):
+    # === SPOSTATO QUI ===
+    init_database()
+    print(f"Database init: {os.path.abspath(db)}")
+    # ===================
     page.window.maximized = True
     show_login_page(page)
 
 
 if __name__ == "__main__":
-    init_database()
-    print(f"Database init: {os.path.abspath(db)}")
     ft.app(target=main)

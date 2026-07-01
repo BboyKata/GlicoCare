@@ -21,7 +21,7 @@ CREATE TABLE IF NOT EXISTS MEDICO (
 CREATE TABLE IF NOT EXISTS PAZIENTE (
     id_paz INTEGER PRIMARY KEY AUTOINCREMENT,
     gravita INTEGER CHECK(gravita >= 0),
-    annotazione TEXT DEFAULT '',
+    annotazione TEXT,
     CF CHAR(16) NOT NULL UNIQUE,                     
     medico INTEGER NOT NULL,                        
     FOREIGN KEY (CF) REFERENCES ANAGRAFICA(CF) ON DELETE CASCADE,
@@ -45,6 +45,7 @@ CREATE TABLE IF NOT EXISTS RILEVAZ_GIORN (
     FOREIGN KEY (id_paz) REFERENCES PAZIENTE(id_paz) ON DELETE CASCADE
 );
 
+-- TERAPIA CON VALIDITÀ TEMPORALE
 CREATE TABLE IF NOT EXISTS TERAPIA (
     id_paz INTEGER NOT NULL,                          
     farmaco VARCHAR(100) NOT NULL,                    
@@ -52,31 +53,37 @@ CREATE TABLE IF NOT EXISTS TERAPIA (
     quantita VARCHAR(50) NOT NULL,                    
     indicazioni VARCHAR(500),                         
     id_med INTEGER NOT NULL,
-    PRIMARY KEY (id_paz, farmaco),
+    data_inizio DATE NOT NULL,                        
+    data_fine DATE,
+    PRIMARY KEY (id_paz, farmaco, data_inizio),      
     FOREIGN KEY (id_paz) REFERENCES PAZIENTE(id_paz) ON DELETE CASCADE,
     FOREIGN KEY (id_med) REFERENCES MEDICO(id_med) ON DELETE RESTRICT
 );
 
+-- SEGNALAZIONE (rinominata da SINTOMO)
 CREATE TABLE IF NOT EXISTS SEGNALAZIONE (
     id_paz INTEGER NOT NULL,                          
-    giorno_inizio DATE NOT NULL,                      
-    giorno_fine DATE NOT NULL,                        
-    descrizione VARCHAR(500) NOT NULL,                
+    giorno DATE NOT NULL,                             
+    ora TIME NOT NULL,                                
+    sintomo VARCHAR(200) NOT NULL,                    
     terapia VARCHAR(100),                             
-    PRIMARY KEY (id_paz, giorno_inizio, giorno_fine),
+    data_inizio DATE NOT NULL,                        -- Aggiunto per la FK
+    PRIMARY KEY (id_paz, giorno, ora),
     FOREIGN KEY (id_paz) REFERENCES PAZIENTE(id_paz) ON DELETE CASCADE,
-    FOREIGN KEY (id_paz, terapia) REFERENCES TERAPIA(id_paz, farmaco) ON DELETE SET NULL
+    FOREIGN KEY (id_paz, terapia, data_inizio) REFERENCES TERAPIA(id_paz, farmaco, data_inizio) ON DELETE SET NULL
 );
 
+-- ASSUNZIONE con data_inizio nella FK
 CREATE TABLE IF NOT EXISTS ASSUNZIONE (
     id_paz INTEGER NOT NULL,                          
     giorno DATE NOT NULL,                             
     ora TIME NOT NULL,                                
     farmaco VARCHAR(100) NOT NULL,                    
+    data_inizio DATE NOT NULL,                        -- Aggiunto per la FK
     quantita VARCHAR(50) NOT NULL,                    
-    PRIMARY KEY (id_paz, giorno, ora),
+    PRIMARY KEY (id_paz, giorno, ora, farmaco, data_inizio),
     FOREIGN KEY (id_paz) REFERENCES PAZIENTE(id_paz) ON DELETE CASCADE,
-    FOREIGN KEY (id_paz, farmaco) REFERENCES TERAPIA(id_paz, farmaco) ON DELETE CASCADE
+    FOREIGN KEY (id_paz, farmaco, data_inizio) REFERENCES TERAPIA(id_paz, farmaco, data_inizio) ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS LOG_OPERAZIONI (
@@ -84,13 +91,12 @@ CREATE TABLE IF NOT EXISTS LOG_OPERAZIONI (
     id_med INTEGER NOT NULL,
     azione VARCHAR(50) NOT NULL,
     tabella VARCHAR(50) NOT NULL,
-    id_record VARCHAR(100),
+    id_record VARCHAR(50),
     dettaglio TEXT,
-    data_ora TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    data_ora DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (id_med) REFERENCES MEDICO(id_med) ON DELETE CASCADE
 );
 
--- Indici
 CREATE INDEX IF NOT EXISTS idx_rilevaz_paziente ON RILEVAZ_GIORN(id_paz);
 CREATE INDEX IF NOT EXISTS idx_terapia_paziente ON TERAPIA(id_paz);
 CREATE INDEX IF NOT EXISTS idx_segnalazione_paziente ON SEGNALAZIONE(id_paz);
@@ -98,10 +104,4 @@ CREATE INDEX IF NOT EXISTS idx_assunzione_paziente ON ASSUNZIONE(id_paz);
 
 CREATE INDEX IF NOT EXISTS idx_paziente_medico ON PAZIENTE(medico);
 CREATE INDEX IF NOT EXISTS idx_terapia_medico ON TERAPIA(id_med);
-
-CREATE INDEX IF NOT EXISTS idx_rilevaz_data ON RILEVAZ_GIORN(giorno);
-CREATE INDEX IF NOT EXISTS idx_segnalazione_date ON SEGNALAZIONE(giorno_inizio, giorno_fine);
-CREATE INDEX IF NOT EXISTS idx_assunzione_data ON ASSUNZIONE(giorno);
-
-CREATE INDEX IF NOT EXISTS idx_log_medico ON LOG_OPERAZIONI(id_med);
-CREATE INDEX IF NOT EXISTS idx_log_data ON LOG_OPERAZIONI(data_ora);
+CREATE INDEX IF NOT EXISTS idx_terapia_validita ON TERAPIA(data_inizio, data_fine);

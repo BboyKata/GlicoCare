@@ -9,10 +9,15 @@ from ui.assunzioni import show_assunzioni_page
 from ui.sintomi import show_sintomi_page
 
 
-def show_patient_dashboard(page: ft.Page, user: User):
+def show_patient_dashboard(page: ft.Page, user: User, db_path: str = None): 
     page.controls.clear()
     
-    paziente = Paziente(user.id_ref)
+    # Usa il percorso passato, oppure un fallback
+    if db_path is None:
+        home = os.path.expanduser("~")
+        db_path = os.path.join(home, ".glicocare", "glicocare.db")
+    
+    paziente = Paziente(user.id_ref, db_path=db_path)  
     page.title = "GlicoCare - Paziente"
     page.bgcolor = "#F8FAFC"
     page.padding = 20
@@ -141,9 +146,14 @@ def show_patient_dashboard(page: ft.Page, user: User):
 
     # --- COLONNA DESTRA (70%) ---
     # Lista terapie (scrollabile)
-    terapie = paziente.getTerapie()
+    terapie_complete = paziente.getTerapie()
+    # getTerapie() restituisce già SOLO quelle attive (data_fine IS NULL), quindi non serve filtrare!
+    
     terapia_items = []
-    for t in terapie:
+    for t in terapie_complete:
+        # t: (farmaco, assunzioniGiornaliere, quantita, indicazioni, id_med, data_inizio)
+        # Mostra anche la data di inizio per contesto
+        data_inizio_vis = t[5]  # data_inizio è l'ultimo elemento della tupla
         terapia_items.append(
             ft.Container(
                 padding=10, bgcolor="#f1f5f9", border_radius=8,
@@ -153,19 +163,20 @@ def show_patient_dashboard(page: ft.Page, user: User):
                         ft.Text(t[2], size=12, color="#64748b"),
                     ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
                     ft.Text(f"{t[1]} assunzioni/giorno", size=11, color="#64748b"),
+                    ft.Text(f"Dal {data_inizio_vis}", size=10, color="#94a3b8", italic=True),
                     ft.Text(t[3] or "", size=11, color="#94a3b8", italic=True) if t[3] else ft.Text(""),
                 ], spacing=2)
             )
         )
     if not terapia_items:
-        terapia_items = [ft.Text("Nessuna terapia prescritta", size=13, color="#94a3b8", italic=True)]
+        terapia_items = [ft.Text("Nessuna terapia attiva prescritta", size=13, color="#94a3b8", italic=True)]
 
     terapie_lista = ft.Container(
         padding=10, bgcolor="white", border_radius=12,
         border=ft.border.all(1, "#e2e8f0"),
         expand=1,   # occupa 1 parte della Row
         content=ft.Column([
-            ft.Text("Le tue Terapie", size=16, weight=ft.FontWeight.BOLD, color="#1e293b"),
+            ft.Text("Le tue Terapie Attive", size=16, weight=ft.FontWeight.BOLD, color="#1e293b"),
             ft.Divider(color="#e2e8f0", height=1),
             ft.Container(height=5),
             ft.ListView(

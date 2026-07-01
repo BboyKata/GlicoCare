@@ -3,9 +3,15 @@ from src.medico import Medico
 from src.user import User
 
 
-def show_log_page(page: ft.Page, user: User):
+def show_log_page(page: ft.Page, user: User, db_path: str = None):
     """Pagina per visualizzare il log delle operazioni del medico."""
     from ui.dashboard_medico import show_doctor_dashboard
+
+    # --- FALLBACK PERCORSO DB ---
+    if db_path is None:
+        import os
+        home = os.path.expanduser("~")
+        db_path = os.path.join(home, ".glicocare", "glicocare.db")
 
     page.controls.clear()
     page.title = "GlicoCare - Log Operazioni"
@@ -13,7 +19,7 @@ def show_log_page(page: ft.Page, user: User):
     page.padding = 20
     page.window.maximized = True
 
-    medico = Medico(user.id_ref)
+    medico = Medico(user.id_ref, db_path)  # <--- Passa db_path
     logs = medico.get_log_operazioni(limite=100)
 
     items = []
@@ -48,7 +54,7 @@ def show_log_page(page: ft.Page, user: User):
                         ft.Icon(ft.Icons.ARROW_BACK, color="#2563eb", size=20),
                         ft.Text("Torna alla Dashboard", size=16, color="#2563eb", weight=ft.FontWeight.BOLD),
                     ]),
-                    on_click=lambda e: show_doctor_dashboard(page, user), padding=10
+                    on_click=lambda e: show_doctor_dashboard(page, user, db_path=db_path), padding=10
                 ),
                 ft.Text("Log Operazioni", size=24, weight=ft.FontWeight.BOLD, color="#1e293b"),
             ]),
