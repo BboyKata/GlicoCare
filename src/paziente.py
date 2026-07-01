@@ -439,20 +439,10 @@ class Paziente:
     # SEGNALAZIONI (MODELLO PUNTUALE: giorno, ora, sintomo)
     # ==========================================================
     def aggiungiSegnalazione(self, giorno: str, ora: str, sintomo: str, terapia: str = None) -> None:
-        """
-        Aggiunge una nuova segnalazione.
-        
-        Args:
-            giorno (str): Data della segnalazione nel formato 'YYYY-MM-DD'.
-            ora (str): Ora della segnalazione nel formato 'HH:MM'.
-            sintomo (str): Descrizione del sintomo.
-            terapia (str, optional): Nome del farmaco associato, se presente.
-        """
         conn = sqlite3.connect(self._db_path)
         cursor = conn.cursor()
         try:
-            # La FOREIGN KEY su (id_paz, terapia, data_inizio) richiede data_inizio.
-            # Qui prendiamo la data_inizio della terapia attiva associata, se esiste.
+            # Recupera data_inizio solo se c'è una terapia
             data_inizio_val = None
             if terapia:
                 cursor.execute(
@@ -462,7 +452,8 @@ class Paziente:
                 row = cursor.fetchone()
                 if row:
                     data_inizio_val = row[0]
-            
+
+            # IMPORTANTE: Se non c'è terapia, data_inizio_val deve essere None
             query = """
             INSERT INTO SEGNALAZIONE (id_paz, giorno, ora, sintomo, terapia, data_inizio)
             VALUES (?, ?, ?, ?, ?, ?)
@@ -502,13 +493,9 @@ class Paziente:
 
     def aggiornaSegnalazione(self, vecchio_giorno: str, vecchia_ora: str, 
                              nuovo_giorno: str, nuova_ora: str, sintomo: str, terapia: str) -> None:
-        """
-        Aggiorna una segnalazione esistente.
-        """
         conn = sqlite3.connect(self._db_path)
         cursor = conn.cursor()
         try:
-            # Recupera la data_inizio della terapia se associata
             data_inizio_val = None
             if terapia:
                 cursor.execute(
@@ -518,14 +505,14 @@ class Paziente:
                 row = cursor.fetchone()
                 if row:
                     data_inizio_val = row[0]
-            
+
             query = """
             UPDATE SEGNALAZIONE
             SET giorno = ?, ora = ?, sintomo = ?, terapia = ?, data_inizio = ?
             WHERE id_paz = ? AND giorno = ? AND ora = ?
             """
             cursor.execute(query, (nuovo_giorno, nuova_ora, sintomo, terapia, data_inizio_val,
-                                self._id_ref, vecchio_giorno, vecchia_ora))
+                                    self._id_ref, vecchio_giorno, vecchia_ora))
             conn.commit()
             print("Segnalazione aggiornata con successo.")
         except sqlite3.Error as e:
