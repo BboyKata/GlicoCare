@@ -147,8 +147,8 @@ def show_patient_dashboard(page: ft.Page, user: User, db_path: str = None):
     # --- COLONNA DESTRA (70%) ---
     # Lista terapie (scrollabile)
     terapie_complete = paziente.getTerapie()
-    # getTerapie() restituisce già SOLO quelle attive (data_fine IS NULL), quindi non serve filtrare!
-    
+    # getTerapie() restituisce già SOLO quelle attive
+        
     terapia_items = []
     for t in terapie_complete:
         # t: (farmaco, assunzioniGiornaliere, quantita, indicazioni, id_med, data_inizio)

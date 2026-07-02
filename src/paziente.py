@@ -1,11 +1,3 @@
-"""
-Modello per la gestione del paziente.
-
-Questo modulo definisce la classe Paziente, che si occupa di interagire
-con il database SQLite per recuperare e modificare tutte le informazioni
-relative a un singolo paziente (anagrafica, rilevazioni, terapie, sintomi).
-"""
-
 import os
 import sqlite3
 from datetime import datetime, timedelta
@@ -43,9 +35,7 @@ class Paziente:
         self._carica_dati()
         self._aggiorna_gravita_db()
 
-    # ==========================================================
     # CARICAMENTO DATI
-    # ==========================================================
     def _carica_dati(self):
         conn = sqlite3.connect(self._db_path)
         cursor = conn.cursor()
@@ -83,13 +73,13 @@ class Paziente:
             cursor.execute(query_rilevazioni, (self._id_ref,))
             self._rilevazioni = cursor.fetchall()
             
-            # --- CORREZIONE QUI: Aggiungi data_inizio ---
+            oggi = datetime.now().strftime("%Y-%m-%d")
             query_terapie = """
             SELECT farmaco, assunzioniGiornaliere, quantita, indicazioni, id_med, data_inizio
             FROM TERAPIA
-            WHERE id_paz = ? AND data_fine IS NULL
+            WHERE id_paz = ? AND (data_fine IS NULL OR data_fine >= ?)
             """
-            cursor.execute(query_terapie, (self._id_ref,))
+            cursor.execute(query_terapie, (self._id_ref, oggi))
             self._terapie = cursor.fetchall()
             # ------------------------------------------
 
@@ -138,9 +128,8 @@ class Paziente:
         self._rilevazioni.sort(key=lambda x: (_minuti(x[1]), x[0]))
         self._rilevazioni.sort(key=lambda x: x[0], reverse=True)
 
-    # ==========================================================
+
     # CALCOLO GRAVITÀ
-    # ==========================================================
     def _calcola_gravita(self):
         """
         Calcola la gravità del paziente:
@@ -170,9 +159,15 @@ class Paziente:
             
             # --- PUNTI TERAPIA: solo giorni con rilevazioni ---
             # Prende solo le terapie ATTIVE (quelle che il paziente deve seguire oggi)
+            oggi = datetime.now().strftime("%Y-%m-%d")
             cursor.execute(
-                "SELECT farmaco, assunzioniGiornaliere FROM TERAPIA WHERE id_paz = ? AND data_fine IS NULL",
-                (self._id_ref,)
+                """
+                SELECT farmaco, assunzioniGiornaliere 
+                FROM TERAPIA 
+                WHERE id_paz = ? 
+                AND (data_fine IS NULL OR data_fine >= ?)
+                """,
+                (self._id_ref, oggi)
             )
             terapie_attive = cursor.fetchall()
             
@@ -225,9 +220,7 @@ class Paziente:
         finally:
             conn.close()
 
-    # ==========================================================
     # GETTER
-    # ==========================================================
     def getIdRef(self) -> int:
         """Restituisce l'ID di riferimento del paziente."""
         return self._id_ref
@@ -294,9 +287,7 @@ class Paziente:
         """Restituisce i punti gravità legati alla terapia non rispettata."""
         return self._punti_terapia
 
-    # ==========================================================
-    # TERAPIE (Lettura)
-    # ==========================================================
+    # TERAPIE (sola lettura)
     def getTerapie(self) -> list:
         """
         Restituisce le terapie farmacologiche ATTIVE del paziente.
@@ -308,8 +299,6 @@ class Paziente:
         """
         return self._terapie
 
-    # ==========================================================
-    # --- NUOVO METODO: Recupera tutto lo storico (attive e passate) ---
     def getTerapieComplete(self) -> list:
         """
         Restituisce TUTTE le terapie (attive e passate) per lo storico.
@@ -368,13 +357,20 @@ class Paziente:
         finally:
             conn.close()
 
-    # ==========================================================
-    # RILEVAZIONI (Scrittura)
-    # ==========================================================
+    # RILEVAZIONI (glicemia giornaliera)
     def aggiungiRilevazioneGiornaliera(self, giorno: str, ora: str, glicemia: float, primaDopoPasto: str) -> None:
         """
         Aggiunge una nuova rilevazione della glicemia.
+        
+        Raises:
+            ValueError: Se glicemia < 0 o primaDopoPasto non è 'P' o 'D'
         """
+        # Validazione lato backend
+        if glicemia < 0:
+            raise ValueError(f"La glicemia non può essere negativa. Valore ricevuto: {glicemia}")
+        if primaDopoPasto not in ('P', 'D'):
+            raise ValueError(f"primaDopoPasto deve essere 'P' o 'D'. Valore ricevuto: '{primaDopoPasto}'")
+        
         conn = sqlite3.connect(self._db_path)
         cursor = conn.cursor()
         try:
@@ -387,6 +383,7 @@ class Paziente:
             print("Rilevazione aggiunta con successo.")
         except sqlite3.Error as e:
             print(f"Errore nell'aggiunta della rilevazione: {e}")
+            raise  # Rilancia l'eccezione per gestirla a livello superiore
         finally:
             conn.close()
         self._refresh_rilevazioni()
@@ -395,7 +392,15 @@ class Paziente:
     def aggiornaRilevazioneGiornaliera(self, vecchio_giorno, vecchia_ora, nuovo_giorno, nuova_ora, glicemia, primaDopoPasto):
         """
         Aggiorna una rilevazione della glicemia esistente.
+        
+        Raises:
+            ValueError: Se glicemia < 0 o primaDopoPasto non è 'P' o 'D'
         """
+        if glicemia < 0:
+            raise ValueError(f"La glicemia non può essere negativa. Valore ricevuto: {glicemia}")
+        if primaDopoPasto not in ('P', 'D'):
+            raise ValueError(f"primaDopoPasto deve essere 'P' o 'D'. Valore ricevuto: '{primaDopoPasto}'")
+        
         conn = sqlite3.connect(self._db_path)
         cursor = conn.cursor()
         try:
@@ -409,6 +414,7 @@ class Paziente:
             print("Rilevazione aggiornata con successo.")
         except sqlite3.Error as e:
             print(f"Errore nell'aggiornamento della rilevazione: {e}")
+            raise
         finally:
             conn.close()
         self._refresh_rilevazioni()
@@ -435,14 +441,20 @@ class Paziente:
         self._refresh_rilevazioni()
         self._aggiorna_gravita_db()
 
-    # ==========================================================
     # SEGNALAZIONI (MODELLO PUNTUALE: giorno, ora, sintomo)
-    # ==========================================================
     def aggiungiSegnalazione(self, giorno: str, ora: str, sintomo: str, terapia: str = None) -> None:
+        """
+        Aggiunge una nuova segnalazione.
+        
+        Args:
+            giorno (str): Data della segnalazione nel formato 'YYYY-MM-DD'.
+            ora (str): Ora della segnalazione nel formato 'HH:MM'.
+            sintomo (str): Descrizione del sintomo.
+            terapia (str, optional): Nome del farmaco associato, se presente.
+        """
         conn = sqlite3.connect(self._db_path)
         cursor = conn.cursor()
         try:
-            # Recupera data_inizio solo se c'è una terapia
             data_inizio_val = None
             if terapia:
                 cursor.execute(
@@ -452,8 +464,7 @@ class Paziente:
                 row = cursor.fetchone()
                 if row:
                     data_inizio_val = row[0]
-
-            # IMPORTANTE: Se non c'è terapia, data_inizio_val deve essere None
+            
             query = """
             INSERT INTO SEGNALAZIONE (id_paz, giorno, ora, sintomo, terapia, data_inizio)
             VALUES (?, ?, ?, ?, ?, ?)
@@ -493,9 +504,13 @@ class Paziente:
 
     def aggiornaSegnalazione(self, vecchio_giorno: str, vecchia_ora: str, 
                              nuovo_giorno: str, nuova_ora: str, sintomo: str, terapia: str) -> None:
+        """
+        Aggiorna una segnalazione esistente.
+        """
         conn = sqlite3.connect(self._db_path)
         cursor = conn.cursor()
         try:
+            # Recupera la data_inizio della terapia se associata
             data_inizio_val = None
             if terapia:
                 cursor.execute(
@@ -505,14 +520,14 @@ class Paziente:
                 row = cursor.fetchone()
                 if row:
                     data_inizio_val = row[0]
-
+            
             query = """
             UPDATE SEGNALAZIONE
             SET giorno = ?, ora = ?, sintomo = ?, terapia = ?, data_inizio = ?
             WHERE id_paz = ? AND giorno = ? AND ora = ?
             """
             cursor.execute(query, (nuovo_giorno, nuova_ora, sintomo, terapia, data_inizio_val,
-                                    self._id_ref, vecchio_giorno, vecchia_ora))
+                                self._id_ref, vecchio_giorno, vecchia_ora))
             conn.commit()
             print("Segnalazione aggiornata con successo.")
         except sqlite3.Error as e:
@@ -539,9 +554,7 @@ class Paziente:
         finally:
             conn.close()
 
-    # ==========================================================
     # ASSUNZIONI
-    # ==========================================================
     def aggiungiAssunzione(self, giorno: str, ora: str, farmaco: str, quantita: str) -> None:
         """
         Registra un'assunzione di un farmaco.
@@ -561,9 +574,8 @@ class Paziente:
                 print(f"Errore: Nessuna terapia attiva per il farmaco '{farmaco}'.")
                 return
 
-            data_inizio_val = row[0]  # <--- QUI PRENDIAMO LA DATA_INIZIO
+            data_inizio_val = row[0]  
 
-            # 2. Inserisci l'assunzione con data_inizio
             query = """
             INSERT INTO ASSUNZIONE (id_paz, giorno, ora, farmaco, quantita, data_inizio)
             VALUES (?, ?, ?, ?, ?, ?)
@@ -665,9 +677,7 @@ class Paziente:
         
         self._aggiorna_gravita_db()
 
-    # ==========================================================
     # ANNOTAZIONE CLINICA
-    # ==========================================================
     def getAnnotazione(self) -> str:
         """Restituisce l'annotazione clinica del paziente."""
         return self._annotazione

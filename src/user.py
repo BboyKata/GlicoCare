@@ -1,10 +1,3 @@
-"""
-Modello per la gestione degli utenti e dell'autenticazione.
-
-Questo modulo definisce la classe User per la gestione delle credenziali
-e la classe CredenzialiNonValide per la gestione delle eccezioni di login.
-"""
-
 import sqlite3
 import hashlib
 

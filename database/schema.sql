@@ -39,7 +39,7 @@ CREATE TABLE IF NOT EXISTS RILEVAZ_GIORN (
     id_paz INTEGER NOT NULL,                          
     giorno DATE NOT NULL,                             
     ora TIME NOT NULL,                                
-    glicemia REAL NOT NULL,                           
+    glicemia REAL NOT NULL CHECK(glicemia >= 0),                           
     primaDopoPasto CHAR(1) CHECK(primaDopoPasto IN ('P', 'D')) NOT NULL,
     PRIMARY KEY (id_paz, giorno, ora),
     FOREIGN KEY (id_paz) REFERENCES PAZIENTE(id_paz) ON DELETE CASCADE

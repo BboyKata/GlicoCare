@@ -97,7 +97,6 @@ def show_doctor_dashboard(page: ft.Page, user: User, db_path: str = None):
         ], expand=True)
     )
 
-    # --- COLONNA DESTRA: Prospetto ---
     card_width = 150
     card_padding = 14
     icon_size = 22
