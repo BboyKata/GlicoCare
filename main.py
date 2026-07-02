@@ -1,7 +1,3 @@
-"""
-GlicoCare - Applicazione Desktop per il Monitoraggio della Glicemia.
-"""
-
 import flet as ft
 import os
 import sys
@@ -29,13 +25,10 @@ db = os.path.join(DATA_PATH, "glicocare.db")
 
 
 def init_database():
-    # Usa la cartella dove si trova main.py
     script_dir = os.path.dirname(os.path.abspath(__file__))
     schema_path = os.path.join(script_dir, "database", "schema.sql")
     popola_path = os.path.join(script_dir, "database", "popola_test.sql")
 
-    # (Opzionale) Se vuoi la cancellazione automatica del db corrotto, tieni questo blocco.
-    # Se vuoi partire pulito, lascialo.
     if os.path.exists(db):
         try:
             conn = sqlite3.connect(db)
@@ -75,7 +68,6 @@ def init_database():
     conn.close()
 
 
-# In main.py
 def handle_login(e: ft.ControlEvent):
     global username_field, password_field, error_label
 
@@ -100,7 +92,6 @@ def handle_login(e: ft.ControlEvent):
     try:
         user = User(username, password, db)
         if user.is_paziente():
-            # PASSIAMO IL PERCORSO 'db' ANCHE ALLA FUNZIONE DELLA DASHBOARD
             show_patient_dashboard(e.page, user, db_path=db) 
         elif user.is_medico():
             show_doctor_dashboard(e.page, user, db_path=db)
@@ -171,10 +162,8 @@ def show_login_page(page: ft.Page):
 
 
 def main(page: ft.Page):
-    # === SPOSTATO QUI ===
     init_database()
     print(f"Database init: {os.path.abspath(db)}")
-    # ===================
     page.window.maximized = True
     show_login_page(page)
 

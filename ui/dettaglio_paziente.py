@@ -344,12 +344,9 @@ def _anag_field(label: str, value: str):
     )
 
 
-# =====================================================================
-# POPUP TERAPIA - AGGIUNGI O MODIFICA (CORRETTO PER DATE PERSONALIZZATE)
-# =====================================================================
+# POPUP TERAPIA - AGGIUNGI O MODIFICA
 def _popup_terapia(page: ft.Page, paziente: Paziente, medico: Medico, id_paz: int, ricarica_callback):
     # --- 1. Recupera tutte le terapie attive ---
-    # --- 1. Recupera tutte le terapie attive (per il menu a tendina) ---
     tutte_terapie = paziente.getTerapieComplete()
     oggi_date = datetime.now().date()
     terapie_attive = []
@@ -381,23 +378,21 @@ def _popup_terapia(page: ft.Page, paziente: Paziente, medico: Medico, id_paz: in
     oggi_date = datetime.now().date()
     oggi_str = oggi_date.strftime("%Y-%m-%d")
 
-    # --- CAMPI DATA (MODIFICABILI A MANO) ---
     data_inizio_field = ft.TextField(
         label="Data inizio terapia (gg-mm-aaaa)",
         value=oggi_date.strftime("%d-%m-%Y"),
         width=300,
         text_size=16,
-        read_only=False  # <--- Ora puoi scrivere a mano!
+        read_only=False 
     )
     data_fine_field = ft.TextField(
         label="Data fine (lascia vuoto per attiva)",
         value="",
         width=300,
         text_size=16,
-        read_only=False  # <--- Anche questa modificabile a mano!
+        read_only=False 
     )
 
-    # Pulsante per cancellare la data fine (utile se hai scritto a mano)
     def cancella_data_fine(e):
         data_fine_field.value = ""
         data_fine_field.update()
@@ -536,8 +531,6 @@ def _popup_terapia(page: ft.Page, paziente: Paziente, medico: Medico, id_paz: in
                 mostra_errore("La data di fine deve essere successiva alla data di inizio.")
                 return
 
-        # === CONTROLLO ANTICIPATO DEI DUPLICATI ===
-        # Prendi tutte le terapie attive (solo quelle senza data fine o con fine futura)
         tutte_terapie = paziente.getTerapieComplete()
         oggi_date = datetime.now().date()
         terapie_attive = [t for t in tutte_terapie if t[6] is None or (t[6] and datetime.strptime(t[6], "%Y-%m-%d").date() >= oggi_date)]
@@ -548,7 +541,6 @@ def _popup_terapia(page: ft.Page, paziente: Paziente, medico: Medico, id_paz: in
                 if t[0].lower() == input_farmaco.value.lower():
                     mostra_errore(f"❌ Il farmaco '{input_farmaco.value}' è già attivo. Modificalo invece di crearne uno nuovo.")
                     return
-        # ======================================================
 
         try:
             if input_select.value == "__NUOVA__":
