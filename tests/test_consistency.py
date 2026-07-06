@@ -93,4 +93,13 @@ class TestConsistency:
         
         p = Paziente(203, db_path)
         p.aggiungiRilevazioneGiornaliera(ieri, '08:00', 100.0, 'P')
-        p.aggiungiRilevazioneGiornal
+        p.aggiungiRilevazioneGiornaliera(oggi, '08:00', 120.0, 'P')
+        
+        # Aggiorna la prima rilevazione
+        p.aggiornaRilevazioneGiornaliera(ieri, '08:00', ieri, '09:00', 110.0, 'P')
+        
+        rilevazioni = p.getRilevazioni()
+        assert len(rilevazioni) == 2
+        # La piu' recente (oggi) deve essere prima
+        assert rilevazioni[0][0] == oggi
+        assert rilevazioni[1][0] == ieri

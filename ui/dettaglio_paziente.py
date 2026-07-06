@@ -217,14 +217,7 @@ def show_paziente_detail(page: ft.Page, user: User, id_paz: int, db_path: str = 
     left_col = ft.Container(
         expand=4, padding=5,
         content=ft.Column([
-            ft.Container(
-                content=ft.Row([
-                    ft.Icon(ft.Icons.ARROW_BACK, color="#2563eb", size=22),
-                    ft.Text("Torna alla Dashboard", size=17, color="#2563eb", weight=ft.FontWeight.BOLD),
-                ]),
-                on_click=lambda e: show_doctor_dashboard(page, user, db_path=db_path), padding=10
-            ),
-            ft.Text(f"{paziente.getNome()} {paziente.getCognome()}", size=26, weight=ft.FontWeight.BOLD, color="#1e293b"),
+            ft.Text(f"{paziente.getNome()} {paziente.getCognome()}", size=36, weight=ft.FontWeight.BOLD, color="#1e293b"),
             ft.Divider(color="#e2e8f0", height=1),
             ft.Container(height=8),
             stato_card,
@@ -306,6 +299,14 @@ def show_paziente_detail(page: ft.Page, user: User, id_paz: int, db_path: str = 
     right_col = ft.Container(
         expand=6, padding=5,
         content=ft.Column([
+                   ft.Container(
+                        content=ft.Row([
+                            ft.Icon(ft.Icons.ARROW_BACK, color="#2563eb", size=22),
+                            ft.Text("Torna alla Dashboard", size=30, color="#2563eb", weight=ft.FontWeight.BOLD),
+                        ], alignment=ft.MainAxisAlignment.END),  # Allineato a destra
+                        on_click=lambda e: show_doctor_dashboard(page, user, db_path=db_path),
+                        padding=ft.padding.only(bottom=10)
+                    ),
             anagrafica_card,
             ft.Container(height=10),
             grafico_card,

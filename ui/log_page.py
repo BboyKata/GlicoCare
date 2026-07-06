@@ -52,7 +52,7 @@ def show_log_page(page: ft.Page, user: User, db_path: str = None):
                 ft.Container(
                     content=ft.Row([
                         ft.Icon(ft.Icons.ARROW_BACK, color="#2563eb", size=20),
-                        ft.Text("Torna alla Dashboard", size=16, color="#2563eb", weight=ft.FontWeight.BOLD),
+                        ft.Text("Torna alla Dashboard", size=26, color="#2563eb", weight=ft.FontWeight.BOLD),
                     ]),
                     on_click=lambda e: show_doctor_dashboard(page, user, db_path=db_path), padding=10
                 ),

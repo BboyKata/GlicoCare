@@ -4,12 +4,12 @@ from src.paziente import Paziente
 from src.user import User
 
 
-def show_assunzioni_page(page: ft.Page, user):
+def show_assunzioni_page(page: ft.Page, user,db_path):
     from ui.dashboard_paziente import show_patient_dashboard
 
     page.controls.clear()
 
-    paziente = Paziente(user.id_ref)
+    paziente = Paziente(user.id_ref,db_path)
     page.title = "GlicoCare - Assunzione Farmaci"
     page.bgcolor = "#F8FAFC"
     page.padding = 20
@@ -44,7 +44,7 @@ def show_assunzioni_page(page: ft.Page, user):
         def chiudi(e):
             page.close(dialog)
             if ricarica:
-                show_assunzioni_page(page, user)
+                show_assunzioni_page(page, user,db_path)
         dialog = ft.AlertDialog(
             title=ft.Text("✅ Ok", color="#10b981"),
             content=ft.Text(msg),
@@ -152,9 +152,9 @@ def show_assunzioni_page(page: ft.Page, user):
                               ft.Divider(), ft.ListView(controls=items, expand=True)], expand=True)),
         ft.Container(expand=2, padding=40, bgcolor="white", border_radius=16,
             content=ft.Column([
-                ft.Container(content=ft.Text("← Torna alla Dashboard", size=16, color="#2563eb", weight=ft.FontWeight.BOLD),
-                            on_click=lambda e: show_patient_dashboard(page, user), padding=10),
-                ft.Text("Registra Assunzione", size=26, weight=ft.FontWeight.BOLD),
+                ft.Container(content=ft.Text("← Torna alla Dashboard", size=26, color="#2563eb", weight=ft.FontWeight.BOLD),
+                            on_click=lambda e: show_patient_dashboard(page, user,db_path), padding=10),
+                ft.Text("Registra Assunzione", size=36, weight=ft.FontWeight.BOLD),
                 ft.Divider(), ft.Container(height=20),
                 ft.Row([
                     ft.Text("Data:", size=15, weight=ft.FontWeight.BOLD), input_data,

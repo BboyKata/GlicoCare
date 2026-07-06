@@ -111,7 +111,7 @@ def show_patient_dashboard(page: ft.Page, user: User, db_path: str = None):
                 ft.Container(
                     height=65, bgcolor="#2563eb", border_radius=12,
                     alignment=ft.alignment.center, padding=10,
-                    on_click=lambda e: show_registrazione_page(page, user),
+                    on_click=lambda e: show_registrazione_page(page, user,db_path),
                     content=ft.Text("Registrazione giornaliera", size=16, color="white", 
                                    weight=ft.FontWeight.BOLD, text_align=ft.TextAlign.CENTER)
                 ),
@@ -119,7 +119,7 @@ def show_patient_dashboard(page: ft.Page, user: User, db_path: str = None):
                 ft.Container(
                     height=65, bgcolor="#f59e0b", border_radius=12,
                     alignment=ft.alignment.center, padding=10,
-                    on_click=lambda e: show_sintomi_page(page, user),
+                    on_click=lambda e: show_sintomi_page(page, user,db_path),
                     content=ft.Text("Aggiungi segnalazione", size=16, color="white", 
                                    weight=ft.FontWeight.BOLD, text_align=ft.TextAlign.CENTER)
                 ),
@@ -127,7 +127,7 @@ def show_patient_dashboard(page: ft.Page, user: User, db_path: str = None):
                 ft.Container(
                     height=65, bgcolor="#10b981", border_radius=12,
                     alignment=ft.alignment.center, padding=10,
-                    on_click=lambda e: show_assunzioni_page(page, user),
+                    on_click=lambda e: show_assunzioni_page(page, user,db_path),
                     content=ft.Text("Aggiungi assunzione farmaco", size=16, color="white", 
                                    weight=ft.FontWeight.BOLD, text_align=ft.TextAlign.CENTER)
                 ),

@@ -6,8 +6,12 @@ from src.paziente import Paziente
 from ui.dettaglio_paziente import show_paziente_detail
 from ui.log_page import show_log_page
 
+_loading = False
 
 def show_doctor_dashboard(page: ft.Page, user: User, db_path: str = None):
+    global _loading
+    _loading = False  # Si ripristina ogni volta che la dashboard viene caricata
+
     # Usa il percorso passato, oppure un fallback
     if db_path is None:
         home = os.path.expanduser("~")
@@ -36,7 +40,7 @@ def show_doctor_dashboard(page: ft.Page, user: User, db_path: str = None):
             ft.Container(
                 width=110, height=36, bgcolor="#ef4444", border_radius=8,
                 alignment=ft.alignment.center,
-                on_click=lambda e: show_login_page(page),  # <--- RIMOSSO L'IMPORT IN ALTO
+                on_click=lambda e: show_login_page(page),
                 content=ft.Text("Logout", size=13, color="white", weight=ft.FontWeight.BOLD)
             ),
         ])
@@ -62,6 +66,13 @@ def show_doctor_dashboard(page: ft.Page, user: User, db_path: str = None):
         else:
             icona = ft.Icon(ft.Icons.CHECK_CIRCLE, color="#10b981", size=20)
 
+        # Crea il pulsante occhio con la funzione anti-doppio-click
+        occhio_btn = ft.IconButton(
+            icon=ft.Icons.VISIBILITY, icon_color="#2563eb", icon_size=22,
+            tooltip="Visualizza paziente",
+            on_click=lambda e, pid=paz['id']: _apri_paziente(page, user, pid, db_path)
+        )
+
         items.append(
             ft.Container(
                 padding=12, bgcolor="white", border_radius=10,
@@ -78,11 +89,7 @@ def show_doctor_dashboard(page: ft.Page, user: User, db_path: str = None):
                         padding=ft.padding.symmetric(horizontal=14, vertical=6),
                         content=ft.Text(str(gravita), color="white", weight=ft.FontWeight.BOLD, size=15)
                     ),
-                    ft.IconButton(
-                        icon=ft.Icons.VISIBILITY, icon_color="#2563eb", icon_size=22,
-                        tooltip="Visualizza paziente",
-                        on_click=lambda e, pid=paz['id']: show_paziente_detail(page, user, pid, db_path=db_path)
-                    )
+                    occhio_btn
                 ], alignment=ft.MainAxisAlignment.START, vertical_alignment=ft.CrossAxisAlignment.CENTER)
             )
         )
@@ -194,6 +201,17 @@ def show_doctor_dashboard(page: ft.Page, user: User, db_path: str = None):
     page.update()
 
 
+def _apri_paziente(page: ft.Page, user: User, pid: int, db_path: str):
+    """Apre la pagina del paziente in modo sicuro, evitando doppi click."""
+    global _loading
+    
+    if _loading:
+        return  # Già in caricamento, ignora click multipli
+    
+    _loading = True
+    show_paziente_detail(page, user, pid, db_path=db_path)
+
+
 def _card_stat(titolo: str, valore: str, colore: str, icona,
                width=180, padding=20, icon_size=28, value_size=28, title_size=12) -> ft.Container:
     return ft.Container(
@@ -208,7 +226,6 @@ def _card_stat(titolo: str, valore: str, colore: str, icona,
 
 
 # --- SISTEMAZIONE DELL'IMPORT CIRCOLARE ---
-# Invece di importare all'inizio, definiamo la funzione qui sotto e la passiamo al Logout
 def show_login_page(page: ft.Page):
     # Importo locale per evitare il loop
     from main import show_login_page as main_login

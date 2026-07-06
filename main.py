@@ -1,7 +1,7 @@
 import flet as ft
 import os
 import sys
-import base64
+import time
 import sqlite3
 from ui.dashboard_medico import show_doctor_dashboard
 from src.user import User, CredenzialiNonValide
@@ -9,17 +9,25 @@ from ui.dashboard_paziente import show_patient_dashboard
 
 
 def get_data_path():
-    """
-    Restituisce un percorso scrivibile per i dati utente.
-    Su Windows usa la cartella AppData, su Linux usa la home.
-    """
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    
+    try:
+        test_file = os.path.join(script_dir, ".write_test")
+        with open(test_file, "w") as f:
+            f.write("test")
+        os.remove(test_file)
+        print(f"Database verrà creato in: {script_dir}")
+        return script_dir
+    except (PermissionError, OSError):
+        pass
+    
     home = os.path.expanduser("~")
     data_dir = os.path.join(home, ".glicocare")
     os.makedirs(data_dir, exist_ok=True)
+    print(f"Database verrà creato in: {data_dir}")
     return data_dir
 
 
-# Percorso del database (nella cartella utente)
 DATA_PATH = get_data_path()
 db = os.path.join(DATA_PATH, "glicocare.db")
 
@@ -116,21 +124,25 @@ def show_login_page(page: ft.Page):
     global username_field, password_field, error_label
 
     page.controls.clear()
-
     page.title = "GlicoCare"
     page.bgcolor = "white"
     page.padding = 0
     page.theme_mode = ft.ThemeMode.LIGHT
-
     page.window.resizable = True
     page.window.maximized = True
     
     script_dir = os.path.dirname(os.path.abspath(__file__))
     logo_path = os.path.join(script_dir, "img", "glicocare.png")
     
+    # Fallback se l'immagine non esiste
+    if os.path.exists(logo_path):
+        logo_widget = ft.Image(src=logo_path, width=320, height=320)
+    else:
+        logo_widget = ft.Icon(ft.Icons.MEDICAL_SERVICES, size=200, color="#2563eb")
+    
     left_col = ft.Container(
         content=ft.Column([
-            ft.Image(src=logo_path, width=320, height=320),
+            logo_widget,
             ft.Text("Il tuo compagno per il\ncontrollo della glicemia", size=24, weight=ft.FontWeight.BOLD, text_align=ft.TextAlign.CENTER, color="#1e293b"),
             ft.Text("Monitoraggio semplice e sicuro", size=14, color="#475569", text_align=ft.TextAlign.CENTER)
         ], alignment=ft.MainAxisAlignment.CENTER, horizontal_alignment=ft.CrossAxisAlignment.CENTER, spacing=20),
@@ -139,7 +151,7 @@ def show_login_page(page: ft.Page):
 
     username_field = ft.TextField(label="Username", width=400, text_size=16, border_color="#cbd5e1", on_submit=handle_login)
     password_field = ft.TextField(label="Password", password=True, can_reveal_password=True, width=400, text_size=16, border_color="#cbd5e1", on_submit=handle_login)
-    error_label = ft.Text("", size=14, selectable=True )
+    error_label = ft.Text("", size=14, selectable=True)
     login_btn = ft.Button(content=ft.Text("Accedi", size=18, weight=ft.FontWeight.BOLD, color="white"), width=400, height=55, bgcolor="#2563eb", on_click=handle_login)
 
     right_col = ft.Container(
@@ -162,11 +174,19 @@ def show_login_page(page: ft.Page):
 
 
 def main(page: ft.Page):
-    init_database()
-    print(f"Database init: {os.path.abspath(db)}")
-    page.window.maximized = True
-    show_login_page(page)
+    try:
+        init_database()
+        print(f"Database init: {os.path.abspath(db)}")
+        page.window.maximized = True
+        page.update()
+        show_login_page(page)
+    except Exception as e:
+        print(f"ERRORE CRITICO: {e}")
+        page.controls.clear()
+        page.add(ft.Text(f"Errore durante l'avvio:\n{str(e)}", color="red", size=20))
+        page.update()
 
 
 if __name__ == "__main__":
+    time.sleep(0.3)  # Previene conflitti di inizializzazione
     ft.app(target=main)
