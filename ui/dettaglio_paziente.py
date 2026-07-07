@@ -1,4 +1,5 @@
 import flet as ft
+import sqlite3
 from datetime import datetime, timedelta
 from src.paziente import Paziente
 from src.medico import Medico
@@ -77,7 +78,6 @@ def show_paziente_detail(page: ft.Page, user: User, id_paz: int, db_path: str = 
     # ==========================================================
     # COLONNA SINISTRA (40%) — Azioni Medico
     # ==========================================================
-    # --- MODIFICATO: USA getTerapieComplete() E LOGICA CORRETTA PER ATTIVA/CONCLUSA ---
     terapie = paziente.getTerapieComplete()
     terapie_items = []
     oggi_date = datetime.now().date()
@@ -86,7 +86,6 @@ def show_paziente_detail(page: ft.Page, user: User, id_paz: int, db_path: str = 
         farmaco, ass, qta, ind, _, inizio, fine = t
         is_attiva = False
         
-        # LOGICA CORRETTA:
         if fine is None:
             is_attiva = True
         else:
@@ -135,7 +134,6 @@ def show_paziente_detail(page: ft.Page, user: User, id_paz: int, db_path: str = 
                          style=ft.ButtonStyle(color="#2563eb", text_style=ft.TextStyle(size=15)))
         ]
     )
-    # ---------------------------------------------------------------------
 
     annotazione_attuale = paziente.getAnnotazione()
     input_annotazione = ft.TextField(
@@ -303,7 +301,7 @@ def show_paziente_detail(page: ft.Page, user: User, id_paz: int, db_path: str = 
                         content=ft.Row([
                             ft.Icon(ft.Icons.ARROW_BACK, color="#2563eb", size=22),
                             ft.Text("Torna alla Dashboard", size=30, color="#2563eb", weight=ft.FontWeight.BOLD),
-                        ], alignment=ft.MainAxisAlignment.END),  # Allineato a destra
+                        ], alignment=ft.MainAxisAlignment.END),
                         on_click=lambda e: show_doctor_dashboard(page, user, db_path=db_path),
                         padding=ft.padding.only(bottom=10)
                     ),
@@ -354,9 +352,6 @@ def _popup_terapia(page: ft.Page, paziente: Paziente, medico: Medico, id_paz: in
     
     for t in tutte_terapie:
         farmaco, ass, qta, ind, _, inizio, fine = t
-        # Una terapia è attiva SE:
-        # 1. non ha data_fine
-        # 2. OPPURE ha data_fine futura (>= oggi)
         if fine is None:
             terapie_attive.append(t)
         else:
@@ -405,23 +400,39 @@ def _popup_terapia(page: ft.Page, paziente: Paziente, medico: Medico, id_paz: in
         on_click=cancella_data_fine
     )
 
+    def on_date_inizio_change(e):
+        data_inizio_field.value = e.control.value.strftime("%d-%m-%Y")
+        data_inizio_field.update()
+
+    def on_date_fine_change(e):
+        data_fine_field.value = e.control.value.strftime("%d-%m-%Y")
+        data_fine_field.update()
+
     def apri_date_picker_inizio(e):
+        try:
+            current_val = datetime.strptime(data_inizio_field.value, "%d-%m-%Y").date()
+        except:
+            current_val = oggi_date
         page.open(
             ft.DatePicker(
                 first_date=datetime(2020, 1, 1),
                 last_date=datetime(2030, 12, 31),
-                value=oggi_date,
-                on_change=lambda e: setattr(data_inizio_field, 'value', e.control.value.strftime("%d-%m-%Y")) or data_inizio_field.update()
+                value=current_val,
+                on_change=on_date_inizio_change
             )
         )
     
     def apri_date_picker_fine(e):
+        try:
+            current_val = datetime.strptime(data_fine_field.value, "%d-%m-%Y").date()
+        except:
+            current_val = oggi_date
         page.open(
             ft.DatePicker(
                 first_date=datetime(2020, 1, 1),
                 last_date=datetime(2030, 12, 31),
-                value=oggi_date,
-                on_change=lambda e: setattr(data_fine_field, 'value', e.control.value.strftime("%d-%m-%Y")) or data_fine_field.update()
+                value=current_val,
+                on_change=on_date_fine_change
             )
         )
 
@@ -443,10 +454,14 @@ def _popup_terapia(page: ft.Page, paziente: Paziente, medico: Medico, id_paz: in
     )
 
     is_initialized = False
+    vecchio_farmaco_selezionato = None
+    vecchia_data_inizio_selezionata = None
 
     def on_select(e):
-        nonlocal is_initialized
+        nonlocal is_initialized, vecchio_farmaco_selezionato, vecchia_data_inizio_selezionata
         if input_select.value == "__NUOVA__":
+            vecchio_farmaco_selezionato = None
+            vecchia_data_inizio_selezionata = None
             input_farmaco.value = ""
             input_assunzioni.value = "1"
             input_quantita.value = ""
@@ -466,12 +481,23 @@ def _popup_terapia(page: ft.Page, paziente: Paziente, medico: Medico, id_paz: in
                     break
             
             if terapia_selezionata:
+                vecchio_farmaco_selezionato = terapia_selezionata[0]
+                vecchia_data_inizio_selezionata = terapia_selezionata[5]
                 input_farmaco.value = terapia_selezionata[0]
                 input_assunzioni.value = str(terapia_selezionata[1])
                 input_quantita.value = terapia_selezionata[2]
                 input_indicazioni.value = terapia_selezionata[3] or ""
-                data_inizio_field.value = datetime.strptime(terapia_selezionata[5], "%Y-%m-%d").strftime("%d-%m-%Y")
-                data_fine_field.value = terapia_selezionata[6] if terapia_selezionata[6] else ""
+                try:
+                    data_inizio_field.value = datetime.strptime(terapia_selezionata[5], "%Y-%m-%d").strftime("%d-%m-%Y")
+                except:
+                    data_inizio_field.value = oggi_date.strftime("%d-%m-%Y")
+                if terapia_selezionata[6]:
+                    try:
+                        data_fine_field.value = datetime.strptime(terapia_selezionata[6], "%Y-%m-%d").strftime("%d-%m-%Y")
+                    except:
+                        data_fine_field.value = ""
+                else:
+                    data_fine_field.value = ""
                 btn_elimina.on_click = lambda e: _elimina_terapia()
                 btn_elimina.bgcolor = "#ef4444"
                 btn_elimina.content.color = "white"
@@ -496,6 +522,7 @@ def _popup_terapia(page: ft.Page, paziente: Paziente, medico: Medico, id_paz: in
         ricarica_callback()
 
     def salva(e):
+        nonlocal vecchio_farmaco_selezionato, vecchia_data_inizio_selezionata
         status_label.value = ""
         status_label.update()
 
@@ -532,17 +559,6 @@ def _popup_terapia(page: ft.Page, paziente: Paziente, medico: Medico, id_paz: in
                 mostra_errore("La data di fine deve essere successiva alla data di inizio.")
                 return
 
-        tutte_terapie = paziente.getTerapieComplete()
-        oggi_date = datetime.now().date()
-        terapie_attive = [t for t in tutte_terapie if t[6] is None or (t[6] and datetime.strptime(t[6], "%Y-%m-%d").date() >= oggi_date)]
-        
-        # Se è una nuova prescrizione, controlla che il farmaco non esista già
-        if input_select.value == "__NUOVA__":
-            for t in terapie_attive:
-                if t[0].lower() == input_farmaco.value.lower():
-                    mostra_errore(f"❌ Il farmaco '{input_farmaco.value}' è già attivo. Modificalo invece di crearne uno nuovo.")
-                    return
-
         try:
             if input_select.value == "__NUOVA__":
                 medico.prescriviTerapia(
@@ -555,16 +571,16 @@ def _popup_terapia(page: ft.Page, paziente: Paziente, medico: Medico, id_paz: in
                     indicazioni=input_indicazioni.value or None
                 )
             else:
-                vecchio_nome = input_select.value
                 medico.modificaTerapia(
                     id_paz=id_paz,
-                    vecchio_farmaco=vecchio_nome,
+                    vecchio_farmaco=vecchio_farmaco_selezionato,
                     nuovo_farmaco=input_farmaco.value,
                     assunzioniGiornaliere=a,
                     quantita=input_quantita.value,
                     data_inizio=data_inizio_str,
                     data_fine=data_fine_str,
-                    indicazioni=input_indicazioni.value or None
+                    indicazioni=input_indicazioni.value or None,
+                    vecchia_data_inizio=vecchia_data_inizio_selezionata
                 )
 
             page.close(dialog)

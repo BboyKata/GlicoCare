@@ -2,14 +2,15 @@ import flet as ft
 from datetime import datetime
 from src.paziente import Paziente
 from src.user import User
+import sqlite3
 
 
-def show_registrazione_page(page: ft.Page, user,db_path):
+def show_registrazione_page(page: ft.Page, user, db_path):
     from ui.dashboard_paziente import show_patient_dashboard
 
     page.controls.clear()
 
-    paziente = Paziente(user.id_ref,db_path)
+    paziente = Paziente(user.id_ref, db_path)
     page.title = "GlicoCare - Registrazione Giornaliera"
     page.bgcolor = "#F8FAFC"
     page.padding = 20
@@ -47,7 +48,7 @@ def show_registrazione_page(page: ft.Page, user,db_path):
         def chiudi(e):
             page.close(dialog)
             if ricarica:
-                show_registrazione_page(page, user,db_path)
+                show_registrazione_page(page, user, db_path)
         dialog = ft.AlertDialog(
             title=ft.Text("✅ Operazione completata", color="#10b981"),
             content=ft.Text(msg, size=15),
@@ -102,6 +103,8 @@ def show_registrazione_page(page: ft.Page, user,db_path):
             try:
                 paziente.aggiungiRilevazioneGiornaliera(nuova_data_ymd, nuova_ora, float(input_glicemia.value), input_pasto.value)
                 popup_ok("Nuova registrazione aggiunta!")
+            except sqlite3.IntegrityError:
+                popup_err("Esiste già una registrazione in quella data e a quell'ora.")
             except Exception as ex:
                 popup_err(str(ex))
 
@@ -113,6 +116,8 @@ def show_registrazione_page(page: ft.Page, user,db_path):
                     nuova_data_ymd, nuova_ora, float(input_glicemia.value), input_pasto.value
                 )
                 popup_ok("Registrazione aggiornata!")
+            except sqlite3.IntegrityError:
+                popup_err("Esiste già una registrazione in quella data e a quell'ora.")
             except Exception as ex:
                 popup_err(str(ex))
 
@@ -179,6 +184,8 @@ def show_registrazione_page(page: ft.Page, user,db_path):
             try:
                 paziente.aggiungiRilevazioneGiornaliera(nuova_data, nuova_ora, glicemia_val, input_pasto.value)
                 popup_ok("Nuova registrazione salvata!")
+            except sqlite3.IntegrityError:
+                popup_err("Esiste già una registrazione in quella data e a quell'ora.")
             except Exception as ex:
                 popup_err(str(ex))
         else:
@@ -189,6 +196,8 @@ def show_registrazione_page(page: ft.Page, user,db_path):
                 try:
                     paziente.aggiornaRilevazioneGiornaliera(v['giorno'], v['ora'], nuova_data, nuova_ora, glicemia_val, input_pasto.value)
                     popup_ok("Registrazione aggiornata!")
+                except sqlite3.IntegrityError:
+                    popup_err("Esiste già una registrazione in quella data e a quell'ora.")
                 except Exception as ex:
                     popup_err(str(ex))
 
@@ -231,7 +240,7 @@ def show_registrazione_page(page: ft.Page, user,db_path):
             content=ft.Column([
                 ft.Container(
                     content=ft.Text("← Torna alla Dashboard", size=26, color="#2563eb", weight=ft.FontWeight.BOLD),
-                    on_click=lambda e: show_patient_dashboard(page, user,db_path), padding=10
+                    on_click=lambda e: show_patient_dashboard(page, user, db_path), padding=10
                 ),
                 ft.Text("Nuova Registrazione", size=36, weight=ft.FontWeight.BOLD),
                 ft.Divider(), ft.Container(height=20),

@@ -1,5 +1,3 @@
-# src/graph_utils.py
-
 import io
 import base64
 from datetime import datetime

@@ -188,5 +188,5 @@ def main(page: ft.Page):
 
 
 if __name__ == "__main__":
-    time.sleep(0.3)  # Previene conflitti di inizializzazione
+    time.sleep(0.3) 
     ft.app(target=main)

@@ -1,9 +1,3 @@
--- database/popola_test.sql
-
--- =====================================================================
--- 1. MEDICO: Dott. Mariano Ceccato
--- =====================================================================
-
 INSERT OR IGNORE INTO ANAGRAFICA (CF, nome, cognome, sesso, dataNascita, luogoNascita, indirizzo, email, cel)
 VALUES ('CCCMRN85M01L781V', 'Mariano', 'Ceccato', 'M', '1985-08-01', 'Verona', 'Via dell_Artigliere 8, Verona', 'mariano.ceccato@univr.it', '348-1234567');
 
@@ -13,14 +7,6 @@ INSERT OR IGNORE INTO MEDICO (CF) VALUES ('CCCMRN85M01L781V');
 INSERT OR IGNORE INTO USER (username, password, tipo, id_ref)
 VALUES ('dott.ceccato', 'a4586977f1ca790adcdf81270c0a972a9498259897a206c570567f642ae78318', 'M', 1);
 
-
--- =====================================================================
--- 2. PAZIENTI DEL DOTT. CECCATO (3 pazienti)
--- =====================================================================
-
--- =====================================================================
--- PAZIENTE 1: Matteo Balzerani (M) - GRAVE: glicemia fuori soglia + terapia non rispettata
--- =====================================================================
 INSERT OR IGNORE INTO ANAGRAFICA (CF, nome, cognome, sesso, dataNascita, luogoNascita, indirizzo, email, cel)
 VALUES ('BLZMTT90A01L781X', 'Matteo', 'Balzerani', 'M', '1990-01-01', 'Verona', 'Via Lungadige 15, Verona', 'matteo.balzerani@univr.it', '347-1112223');
 
@@ -34,7 +20,6 @@ INSERT OR IGNORE INTO PAZIENTE (gravita, CF, medico, annotazione) VALUES (
 -- Password: password
 INSERT OR IGNORE INTO USER (username, password, tipo, id_ref) VALUES ('matteo.balzerani', '5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8', 'P', 1);
 
--- Terapie di Matteo: una passata (Metformina vecchio dosaggio) + due attive (Metformina 1000 mg, Insulina Glargine, Ramipril)
 INSERT OR IGNORE INTO TERAPIA (id_paz, farmaco, assunzioniGiornaliere, quantita, indicazioni, id_med, data_inizio, data_fine)
 VALUES (1, 'Metformina', 2, '500 mg', 'Assumere dopo i pasti principali (colazione e cena).', 1, date('now', '-180 days'), date('now', '-90 days'));
 
@@ -47,7 +32,6 @@ VALUES (1, 'Insulina Glargine', 1, '20 UI', 'Somministrare per via sottocutanea 
 INSERT OR IGNORE INTO TERAPIA (id_paz, farmaco, assunzioniGiornaliere, quantita, indicazioni, id_med, data_inizio, data_fine)
 VALUES (1, 'Ramipril', 1, '5 mg', 'Assumere al mattino a digiuno per controllo pressione arteriosa.', 1, date('now', '-120 days'), NULL);
 
--- Rilevazioni di Matteo: 30 giorni, 1 rilevazione al giorno, TUTTE fuori soglia (> 130 pre-prandiale)
 INSERT OR IGNORE INTO RILEVAZ_GIORN (id_paz, giorno, ora, glicemia, primaDopoPasto) VALUES 
 (1, date('now', '-30 days'), '08:00', 185.0, 'P'),
 (1, date('now', '-29 days'), '08:00', 195.0, 'P'),
@@ -80,8 +64,6 @@ INSERT OR IGNORE INTO RILEVAZ_GIORN (id_paz, giorno, ora, glicemia, primaDopoPas
 (1, date('now', '-2 days'), '08:00', 240.0, 'P'),
 (1, date('now', '-1 days'), '08:00', 198.0, 'P');
 
--- Assunzioni di Matteo: SOLO 5 assunzioni totali su 3 terapie attive → scarsa aderenza
--- Teoricamente dovrebbe fare: 2 Metformina + 1 Insulina + 1 Ramipril = 4 assunzioni al giorno
 INSERT OR IGNORE INTO ASSUNZIONE (id_paz, giorno, ora, farmaco, data_inizio, quantita) VALUES 
 (1, date('now', '-1 days'), '13:00', 'Metformina', date('now', '-90 days'), '1000 mg'),
 (1, date('now', '-3 days'), '13:00', 'Metformina', date('now', '-90 days'), '1000 mg'),
@@ -89,16 +71,13 @@ INSERT OR IGNORE INTO ASSUNZIONE (id_paz, giorno, ora, farmaco, data_inizio, qua
 (1, date('now', '-7 days'), '08:00', 'Ramipril', date('now', '-120 days'), '5 mg'),
 (1, date('now', '-10 days'), '13:00', 'Metformina', date('now', '-90 days'), '1000 mg');
 
--- Segnalazioni di Matteo
 INSERT OR IGNORE INTO SEGNALAZIONE (id_paz, giorno, ora, sintomo, terapia, data_inizio) VALUES 
 (1, date('now', '-2 days'), '09:30', 'Vertigini al risveglio, possibile ipoglicemia notturna', 'Insulina Glargine', date('now', '-60 days')),
 (1, date('now', '-8 days'), '15:00', 'Nausea dopo assunzione Metformina', 'Metformina', date('now', '-90 days')),
 (1, date('now', '-15 days'), '11:00', 'Vista offuscata temporanea', NULL, NULL);
 
 
--- =====================================================================
--- PAZIENTE 2: Jessica Devescovi (F) - SOLO GLICEMIA fuori soglia, terapia RISPETTATA
--- =====================================================================
+
 INSERT OR IGNORE INTO ANAGRAFICA (CF, nome, cognome, sesso, dataNascita, luogoNascita, indirizzo, email, cel)
 VALUES ('DVSCST85A01H501Z', 'Jessica', 'Devescovi', 'F', '1985-01-01', 'Verona', 'Corso Porta Nuova 42, Verona', 'jessica.devescovi@univr.it', '347-3334445');
 
@@ -111,14 +90,12 @@ INSERT OR IGNORE INTO PAZIENTE (gravita, CF, medico, annotazione) VALUES (
 
 INSERT OR IGNORE INTO USER (username, password, tipo, id_ref) VALUES ('jessica.devescovi', '5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8', 'P', 2);
 
--- Terapie di Jessica: 2 terapie attive (Insulina Lispro 3/die + Insulina Glargine 1/die = 4 assunzioni/giorno)
 INSERT OR IGNORE INTO TERAPIA (id_paz, farmaco, assunzioniGiornaliere, quantita, indicazioni, id_med, data_inizio, data_fine)
 VALUES (2, 'Insulina Lispro', 3, '6-8 UI', 'Somministrare prima dei pasti principali. Dose variabile in base al conteggio carboidrati e glicemia pre-prandiale.', 1, date('now', '-365 days'), NULL);
 
 INSERT OR IGNORE INTO TERAPIA (id_paz, farmaco, assunzioniGiornaliere, quantita, indicazioni, id_med, data_inizio, data_fine)
 VALUES (2, 'Insulina Glargine', 1, '14 UI', 'Somministrare alle 22:00. Dose fissa serale.', 1, date('now', '-365 days'), NULL);
 
--- Rilevazioni di Jessica: 15 giorni con rilevazioni, alcune fuori soglia
 INSERT OR IGNORE INTO RILEVAZ_GIORN (id_paz, giorno, ora, glicemia, primaDopoPasto) VALUES 
 (2, date('now', '-15 days'), '08:00', 145.0, 'P'),
 (2, date('now', '-14 days'), '08:00', 98.0, 'P'),
@@ -136,7 +113,6 @@ INSERT OR IGNORE INTO RILEVAZ_GIORN (id_paz, giorno, ora, glicemia, primaDopoPas
 (2, date('now', '-2 days'), '08:00', 100.0, 'P'),
 (2, date('now', '-1 days'), '08:00', 128.0, 'P');
 
--- Assunzioni di Jessica: 4 assunzioni/giorno per OGNI giorno con rilevazione → terapia RISPETTATA
 INSERT OR IGNORE INTO ASSUNZIONE (id_paz, giorno, ora, farmaco, data_inizio, quantita) VALUES 
 (2, date('now', '-1 days'), '08:00', 'Insulina Lispro', date('now', '-365 days'), '7 UI'),
 (2, date('now', '-1 days'), '13:00', 'Insulina Lispro', date('now', '-365 days'), '6 UI'),
@@ -199,15 +175,12 @@ INSERT OR IGNORE INTO ASSUNZIONE (id_paz, giorno, ora, farmaco, data_inizio, qua
 (2, date('now', '-15 days'), '20:00', 'Insulina Lispro', date('now', '-365 days'), '8 UI'),
 (2, date('now', '-15 days'), '22:00', 'Insulina Glargine', date('now', '-365 days'), '14 UI');
 
--- Segnalazioni di Jessica
 INSERT OR IGNORE INTO SEGNALAZIONE (id_paz, giorno, ora, sintomo, terapia, data_inizio) VALUES 
 (2, date('now', '-1 days'), '17:00', 'Ipoglicemia dopo sessione di nuoto (glicemia 55 mg/dL). Assunta bustina di zucchero.', 'Insulina Lispro', date('now', '-365 days')),
 (2, date('now', '-10 days'), '19:00', 'Tremori e sudorazione prima di cena', NULL, NULL);
 
 
--- =====================================================================
--- PAZIENTE 3: Mattia Mantovani (M) - SANO, tutto in regola
--- =====================================================================
+
 INSERT OR IGNORE INTO ANAGRAFICA (CF, nome, cognome, sesso, dataNascita, luogoNascita, indirizzo, email, cel)
 VALUES ('MNVMTT90B01H501Z', 'Mattia', 'Mantovani', 'M', '1990-02-02', 'Milano', 'Via Solferino 10, Milano', 'mattia.mantovani@univr.it', '347-5556667');
 
@@ -220,11 +193,9 @@ INSERT OR IGNORE INTO PAZIENTE (gravita, CF, medico, annotazione) VALUES (
 
 INSERT OR IGNORE INTO USER (username, password, tipo, id_ref) VALUES ('mattia.mantovani', '5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8', 'P', 3);
 
--- Terapia di Mattia: solo Metformina 1/die
 INSERT OR IGNORE INTO TERAPIA (id_paz, farmaco, assunzioniGiornaliere, quantita, indicazioni, id_med, data_inizio, data_fine)
 VALUES (3, 'Metformina', 1, '500 mg', 'Assumere a colazione con abbondante acqua.', 1, date('now', '-180 days'), NULL);
 
--- Rilevazioni di Mattia: 20 giorni, tutte in regola (80-130 pre, <180 post)
 INSERT OR IGNORE INTO RILEVAZ_GIORN (id_paz, giorno, ora, glicemia, primaDopoPasto) VALUES 
 (3, date('now', '-20 days'), '08:00', 95.0, 'P'),
 (3, date('now', '-19 days'), '08:00', 92.0, 'P'),
@@ -247,7 +218,6 @@ INSERT OR IGNORE INTO RILEVAZ_GIORN (id_paz, giorno, ora, glicemia, primaDopoPas
 (3, date('now', '-2 days'), '08:00', 98.0, 'P'),
 (3, date('now', '-1 days'), '08:00', 96.0, 'P');
 
--- Assunzioni di Mattia: 1 assunzione/giorno per OGNI giorno con rilevazione → aderenza PERFETTA
 INSERT OR IGNORE INTO ASSUNZIONE (id_paz, giorno, ora, farmaco, data_inizio, quantita) VALUES 
 (3, date('now', '-1 days'), '08:00', 'Metformina', date('now', '-180 days'), '500 mg'),
 (3, date('now', '-2 days'), '08:00', 'Metformina', date('now', '-180 days'), '500 mg'),
@@ -270,14 +240,9 @@ INSERT OR IGNORE INTO ASSUNZIONE (id_paz, giorno, ora, farmaco, data_inizio, qua
 (3, date('now', '-19 days'), '08:00', 'Metformina', date('now', '-180 days'), '500 mg'),
 (3, date('now', '-20 days'), '08:00', 'Metformina', date('now', '-180 days'), '500 mg');
 
--- Segnalazioni di Mattia (una sola, lieve)
 INSERT OR IGNORE INTO SEGNALAZIONE (id_paz, giorno, ora, sintomo, terapia, data_inizio) VALUES 
 (3, date('now', '-20 days'), '10:00', 'Lieve nausea mattutina risolta spontaneamente', 'Metformina', date('now', '-180 days'));
 
-
--- =====================================================================
--- 3. LOG OPERAZIONI (esempi per il Dott. Ceccato)
--- =====================================================================
 
 INSERT INTO LOG_OPERAZIONI (id_med, azione, tabella, id_record, dettaglio) VALUES
 (1, 'PRESCRIZIONE_TERAPIA', 'TERAPIA', '1/Metformina', 'Aumentato dosaggio Metformina a 1000 mg per Matteo Balzerani'),
@@ -286,9 +251,7 @@ INSERT INTO LOG_OPERAZIONI (id_med, azione, tabella, id_record, dettaglio) VALUE
 (1, 'PRESCRIZIONE_TERAPIA', 'TERAPIA', '3/Metformina', 'Prescritta Metformina 500 mg per Mattia Mantovani'),
 (1, 'VISUALIZZA_DETTAGLIO', 'PAZIENTE', '1', 'Visualizzato dettaglio Matteo Balzerani');
 
--- =====================================================================
--- ASSUNZIONI AGGIUNTIVE PER JESSICA (tutti i giorni con rilevazioni nell'ultimo anno)
--- =====================================================================
+
 INSERT OR IGNORE INTO ASSUNZIONE (id_paz, giorno, ora, farmaco, data_inizio, quantita) VALUES 
 (2, date('now', '-350 days'), '08:00', 'Insulina Lispro', date('now', '-365 days'), '7 UI'),
 (2, date('now', '-340 days'), '08:00', 'Insulina Lispro', date('now', '-365 days'), '7 UI'),
@@ -326,9 +289,6 @@ INSERT OR IGNORE INTO ASSUNZIONE (id_paz, giorno, ora, farmaco, data_inizio, qua
 (2, date('now', '-25 days'), '08:00', 'Insulina Lispro', date('now', '-365 days'), '7 UI'),
 (2, date('now', '-20 days'), '08:00', 'Insulina Lispro', date('now', '-365 days'), '7 UI');
 
--- =====================================================================
--- ASSUNZIONI AGGIUNTIVE PER MATTIA (tutti i giorni con rilevazioni nell'ultimo anno)
--- =====================================================================
 INSERT OR IGNORE INTO ASSUNZIONE (id_paz, giorno, ora, farmaco, data_inizio, quantita) VALUES 
 (3, date('now', '-350 days'), '08:00', 'Metformina', date('now', '-180 days'), '500 mg'),
 (3, date('now', '-320 days'), '08:00', 'Metformina', date('now', '-180 days'), '500 mg'),
@@ -342,9 +302,7 @@ INSERT OR IGNORE INTO ASSUNZIONE (id_paz, giorno, ora, farmaco, data_inizio, qua
 (3, date('now', '-80 days'), '08:00', 'Metformina', date('now', '-180 days'), '500 mg'),
 (3, date('now', '-50 days'), '08:00', 'Metformina', date('now', '-180 days'), '500 mg');
 
--- =====================================================================
--- ALTRE RILEVAZIONI PER MATTEO BALZARANI (continua fuori controllo)
--- =====================================================================
+
 INSERT OR IGNORE INTO RILEVAZ_GIORN (id_paz, giorno, ora, glicemia, primaDopoPasto) VALUES 
 (1, date('now', '-340 days'), '08:00', 172.0, 'P'),
 (1, date('now', '-320 days'), '08:00', 198.0, 'D'),
@@ -368,9 +326,7 @@ INSERT OR IGNORE INTO RILEVAZ_GIORN (id_paz, giorno, ora, glicemia, primaDopoPas
 (1, date('now', '-50 days'), '08:00', 178.0, 'P'),
 (1, date('now', '-40 days'), '08:00', 195.0, 'P');
 
--- =====================================================================
--- ALTRE RILEVAZIONI PER JESSICA DEVESCOVI (alternanza buono/cattivo)
--- =====================================================================
+
 INSERT OR IGNORE INTO RILEVAZ_GIORN (id_paz, giorno, ora, glicemia, primaDopoPasto) VALUES 
 (2, date('now', '-345 days'), '08:00', 108.0, 'P'),
 (2, date('now', '-335 days'), '08:00', 142.0, 'P'),
@@ -407,9 +363,6 @@ INSERT OR IGNORE INTO RILEVAZ_GIORN (id_paz, giorno, ora, glicemia, primaDopoPas
 (2, date('now', '-18 days'), '08:00', 88.0, 'P'),
 (2, date('now', '-8 days'), '08:00', 148.0, 'P');
 
--- =====================================================================
--- ALTRE RILEVAZIONI PER MATTIA MANTOVANI (tutto perfetto)
--- =====================================================================
 INSERT OR IGNORE INTO RILEVAZ_GIORN (id_paz, giorno, ora, glicemia, primaDopoPasto) VALUES 
 (3, date('now', '-340 days'), '08:00', 94.0, 'P'),
 (3, date('now', '-330 days'), '08:00', 90.0, 'P'),
@@ -434,9 +387,7 @@ INSERT OR IGNORE INTO RILEVAZ_GIORN (id_paz, giorno, ora, glicemia, primaDopoPas
 (3, date('now', '-40 days'), '08:00', 91.0, 'P'),
 (3, date('now', '-30 days'), '08:00', 88.0, 'P');
 
--- =====================================================================
--- ASSUNZIONI AGGIUNTIVE PER JESSICA (per i nuovi giorni con rilevazioni)
--- =====================================================================
+
 INSERT OR IGNORE INTO ASSUNZIONE (id_paz, giorno, ora, farmaco, data_inizio, quantita) VALUES 
 (2, date('now', '-345 days'), '08:00', 'Insulina Lispro', date('now', '-365 days'), '7 UI'),
 (2, date('now', '-335 days'), '08:00', 'Insulina Lispro', date('now', '-365 days'), '7 UI'),
@@ -473,9 +424,6 @@ INSERT OR IGNORE INTO ASSUNZIONE (id_paz, giorno, ora, farmaco, data_inizio, qua
 (2, date('now', '-18 days'), '08:00', 'Insulina Lispro', date('now', '-365 days'), '7 UI'),
 (2, date('now', '-8 days'), '08:00', 'Insulina Lispro', date('now', '-365 days'), '7 UI');
 
--- =====================================================================
--- ASSUNZIONI AGGIUNTIVE PER MATTIA (per i nuovi giorni con rilevazioni)
--- =====================================================================
 INSERT OR IGNORE INTO ASSUNZIONE (id_paz, giorno, ora, farmaco, data_inizio, quantita) VALUES 
 (3, date('now', '-340 days'), '08:00', 'Metformina', date('now', '-180 days'), '500 mg'),
 (3, date('now', '-330 days'), '08:00', 'Metformina', date('now', '-180 days'), '500 mg'),

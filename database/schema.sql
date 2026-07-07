@@ -1,5 +1,3 @@
--- glicocare
-
 CREATE TABLE IF NOT EXISTS ANAGRAFICA (
     CF CHAR(16) PRIMARY KEY,                          
     nome VARCHAR(50) NOT NULL,                        
@@ -45,7 +43,6 @@ CREATE TABLE IF NOT EXISTS RILEVAZ_GIORN (
     FOREIGN KEY (id_paz) REFERENCES PAZIENTE(id_paz) ON DELETE CASCADE
 );
 
--- TERAPIA CON VALIDITÀ TEMPORALE
 CREATE TABLE IF NOT EXISTS TERAPIA (
     id_paz INTEGER NOT NULL,                          
     farmaco VARCHAR(100) NOT NULL,                    
@@ -57,7 +54,8 @@ CREATE TABLE IF NOT EXISTS TERAPIA (
     data_fine DATE,
     PRIMARY KEY (id_paz, farmaco, data_inizio),      
     FOREIGN KEY (id_paz) REFERENCES PAZIENTE(id_paz) ON DELETE CASCADE,
-    FOREIGN KEY (id_med) REFERENCES MEDICO(id_med) ON DELETE RESTRICT
+    FOREIGN KEY (id_med) REFERENCES MEDICO(id_med) ON DELETE RESTRICT,
+    CHECK(data_inizio <= data_fine)
 );
 
 CREATE TABLE IF NOT EXISTS SEGNALAZIONE (
@@ -66,19 +64,18 @@ CREATE TABLE IF NOT EXISTS SEGNALAZIONE (
     ora TIME NOT NULL,                                
     sintomo VARCHAR(200) NOT NULL,                    
     terapia VARCHAR(100),                             
-    data_inizio DATE DEFAULT NULL,                    -- CAMBIATO DA NOT NULL A DEFAULT NULL
+    data_inizio DATE DEFAULT NULL,                   
     PRIMARY KEY (id_paz, giorno, ora),
     FOREIGN KEY (id_paz) REFERENCES PAZIENTE(id_paz) ON DELETE CASCADE,
     FOREIGN KEY (id_paz, terapia, data_inizio) REFERENCES TERAPIA(id_paz, farmaco, data_inizio) ON DELETE SET NULL
 );
 
--- ASSUNZIONE con data_inizio nella FK
 CREATE TABLE IF NOT EXISTS ASSUNZIONE (
     id_paz INTEGER NOT NULL,                          
     giorno DATE NOT NULL,                             
     ora TIME NOT NULL,                                
     farmaco VARCHAR(100) NOT NULL,                    
-    data_inizio DATE NOT NULL,                        -- Aggiunto per la FK
+    data_inizio DATE NOT NULL,                       
     quantita VARCHAR(50) NOT NULL,                    
     PRIMARY KEY (id_paz, giorno, ora, farmaco, data_inizio),
     FOREIGN KEY (id_paz) REFERENCES PAZIENTE(id_paz) ON DELETE CASCADE,

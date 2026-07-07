@@ -35,7 +35,6 @@ class Paziente:
         self._carica_dati()
         self._aggiorna_gravita_db()
 
-    # CARICAMENTO DATI
     def _carica_dati(self):
         conn = sqlite3.connect(self._db_path)
         cursor = conn.cursor()
@@ -81,7 +80,6 @@ class Paziente:
             """
             cursor.execute(query_terapie, (self._id_ref, oggi))
             self._terapie = cursor.fetchall()
-            # ------------------------------------------
 
         except sqlite3.Error as e:
             print(f"Errore database: {e}")
@@ -146,7 +144,7 @@ class Paziente:
         punti_terapia = 0
         
         try:
-            # --- PUNTI GLICEMIA: tutti i valori fuori soglia ---
+            #  PUNTI GLICEMIA: tutti i valori fuori soglia 
             cursor.execute(
                 "SELECT glicemia, primaDopoPasto FROM RILEVAZ_GIORN WHERE id_paz = ?",
                 (self._id_ref,)
@@ -157,7 +155,7 @@ class Paziente:
                 elif tipo_pasto == 'D' and glicemia > 180:
                     punti_glicemia += 1
             
-            # --- PUNTI TERAPIA: solo giorni con rilevazioni ---
+            # PUNTI TERAPIA: solo giorni con rilevazioni 
             # Prende solo le terapie ATTIVE (quelle che il paziente deve seguire oggi)
             oggi = datetime.now().strftime("%Y-%m-%d")
             cursor.execute(
@@ -287,7 +285,7 @@ class Paziente:
         """Restituisce i punti gravità legati alla terapia non rispettata."""
         return self._punti_terapia
 
-    # TERAPIE (sola lettura)
+    
     def getTerapie(self) -> list:
         """
         Restituisce le terapie farmacologiche ATTIVE del paziente.
@@ -319,7 +317,6 @@ class Paziente:
             return []
         finally:
             conn.close()
-    # -----------------------------------------------------------
 
     def getTerapieByName(self, farmaco: str) -> tuple:
         """
@@ -357,7 +354,7 @@ class Paziente:
         finally:
             conn.close()
 
-    # RILEVAZIONI (glicemia giornaliera)
+    
     def aggiungiRilevazioneGiornaliera(self, giorno: str, ora: str, glicemia: float, primaDopoPasto: str) -> None:
         """
         Aggiunge una nuova rilevazione della glicemia.
@@ -441,7 +438,6 @@ class Paziente:
         self._refresh_rilevazioni()
         self._aggiorna_gravita_db()
 
-    # SEGNALAZIONI (MODELLO PUNTUALE: giorno, ora, sintomo)
     def aggiungiSegnalazione(self, giorno: str, ora: str, sintomo: str, terapia: str = None) -> None:
         """
         Aggiunge una nuova segnalazione.
@@ -627,7 +623,7 @@ class Paziente:
                 print(f"Errore: Nessuna terapia attiva per il farmaco '{farmaco}'.")
                 return
 
-            data_inizio_val = row[0]  # <--- QUI PRENDIAMO LA DATA_INIZIO
+            data_inizio_val = row[0]  # < QUI PRENDIAMO LA DATA_INIZIO
 
             query = """
             UPDATE ASSUNZIONE

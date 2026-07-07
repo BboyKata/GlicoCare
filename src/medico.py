@@ -75,9 +75,7 @@ class Medico:
         finally:
             conn.close()
 
-    # ==========================================================
     # GETTER
-    # ==========================================================
     def getIdRef(self) -> int:
         return self._id_ref
 
@@ -108,9 +106,7 @@ class Medico:
     def getCel(self) -> str:
         return self._cel
 
-    # ==========================================================
     # GESTIONE PAZIENTI
-    # ==========================================================
     def getPazientiIds(self) -> list:
         return self._pazienti_ids
 
@@ -208,9 +204,7 @@ class Medico:
         finally:
             conn.close()
 
-    # ==========================================================
     # GESTIONE TERAPIE
-    # ==========================================================
 
     def prescriviTerapia(self, id_paz: int, farmaco: str, assunzioniGiornaliere: int, quantita: str, data_inizio: str, data_fine: str = None, indicazioni: str = None):
         """Prescrive una nuova terapia (INSERT)."""
@@ -229,57 +223,67 @@ class Medico:
             conn.close()
         self._aggiorna_gravita_paziente(id_paz)
 
-    def modificaTerapia(self, id_paz: int, vecchio_farmaco: str, nuovo_farmaco: str, assunzioniGiornaliere: int, quantita: str, data_inizio: str, data_fine: str = None, indicazioni: str = None):
+    def modificaTerapia(self, id_paz: int, vecchio_farmaco: str, nuovo_farmaco: str, 
+                        assunzioniGiornaliere: int, quantita: str, data_inizio: str, 
+                        data_fine: str = None, indicazioni: str = None, 
+                        vecchia_data_inizio: str = None):
         """
         Modifica una terapia esistente.
-        CASO A: Stesso farmaco -> UPDATE diretto (modifica dose, data_fine, ecc.)
-        CASO B: Farmaco diverso -> Chiudi vecchia (data_fine=oggi) e crea nuova riga.
+        CASO A: Stesso farmaco -> UPDATE diretto
+        CASO B: Farmaco diverso -> Chiudi vecchia e crea nuova
         """
         conn = sqlite3.connect(self._db_path)
         cursor = conn.cursor()
         try:
             oggi = datetime.now().strftime("%Y-%m-%d")
 
-            # CASO A: Stesso farmaco (solo modifica quantità, data_fine, ecc.)
+            # CASO A: Stesso farmaco
             if vecchio_farmaco == nuovo_farmaco:
-                cursor.execute("""
-                UPDATE TERAPIA
-                SET assunzioniGiornaliere = ?, quantita = ?, indicazioni = ?, data_fine = ?
-                WHERE id_paz = ? AND farmaco = ? AND data_inizio = ?
-                """, (assunzioniGiornaliere, quantita, indicazioni, data_fine, id_paz, vecchio_farmaco, data_inizio))
+                # Usa vecchia_data_inizio se fornita, altrimenti cerca terapia senza data_fine
+                if vecchia_data_inizio:
+                    cursor.execute("""
+                    UPDATE TERAPIA
+                    SET data_inizio = ?, assunzioniGiornaliere = ?, quantita = ?, 
+                        indicazioni = ?, data_fine = ?
+                    WHERE id_paz = ? AND farmaco = ? AND data_inizio = ?
+                    """, (data_inizio, assunzioniGiornaliere, quantita, indicazioni, 
+                        data_fine, id_paz, vecchio_farmaco, vecchia_data_inizio))
+                else:
+                    cursor.execute("""
+                    UPDATE TERAPIA
+                    SET data_inizio = ?, assunzioniGiornaliere = ?, quantita = ?, 
+                        indicazioni = ?, data_fine = ?
+                    WHERE id_paz = ? AND farmaco = ? AND data_fine IS NULL
+                    """, (data_inizio, assunzioniGiornaliere, quantita, indicazioni, 
+                        data_fine, id_paz, vecchio_farmaco))
                 conn.commit()
-                self.registra_operazione("MODIFICA_TERAPIA", "TERAPIA", f"{id_paz}/{vecchio_farmaco}", f"Aggiornata {vecchio_farmaco} (data_fine={data_fine})")
+                self.registra_operazione("MODIFICA_TERAPIA", "TERAPIA", 
+                                        f"{id_paz}/{vecchio_farmaco}", 
+                                        f"Aggiornata {vecchio_farmaco}")
             
             # CASO B: Farmaco diverso
             else:
-                # 1. Chiudi la vecchia terapia (data_fine = oggi)
-                cursor.execute("UPDATE TERAPIA SET data_fine=? WHERE id_paz=? AND farmaco=? AND data_inizio=?", (oggi, id_paz, vecchio_farmaco, data_inizio))
+                # 1. Chiudi la vecchia terapia
+                if vecchia_data_inizio:
+                    cursor.execute("UPDATE TERAPIA SET data_fine=? WHERE id_paz=? AND farmaco=? AND data_inizio=?", 
+                                (oggi, id_paz, vecchio_farmaco, vecchia_data_inizio))
+                else:
+                    cursor.execute("UPDATE TERAPIA SET data_fine=? WHERE id_paz=? AND farmaco=? AND data_fine IS NULL", 
+                                (oggi, id_paz, vecchio_farmaco))
                 # 2. Inserisci la nuova terapia
                 cursor.execute("""
-                INSERT INTO TERAPIA (id_paz, farmaco, assunzioniGiornaliere, quantita, indicazioni, id_med, data_inizio, data_fine)
+                INSERT INTO TERAPIA (id_paz, farmaco, assunzioniGiornaliere, quantita, 
+                                indicazioni, id_med, data_inizio, data_fine)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                """, (id_paz, nuovo_farmaco, assunzioniGiornaliere, quantita, indicazioni, self._id_ref, oggi, data_fine))
+                """, (id_paz, nuovo_farmaco, assunzioniGiornaliere, quantita, indicazioni, 
+                    self._id_ref, data_inizio, data_fine))
                 conn.commit()
-                self.registra_operazione("MODIFICA_TERAPIA", "TERAPIA", f"{id_paz}/{nuovo_farmaco}", f"Sostituito {vecchio_farmaco}→{nuovo_farmaco}")
+                self.registra_operazione("MODIFICA_TERAPIA", "TERAPIA", 
+                                        f"{id_paz}/{nuovo_farmaco}", 
+                                        f"Sostituito {vecchio_farmaco}→{nuovo_farmaco}")
             
         except sqlite3.Error as e:
             print(f"ERRORE MODIFICA: {e}")
-        finally:
-            conn.close()
-        self._aggiorna_gravita_paziente(id_paz)
-
-    def interrompiTerapia(self, id_paz: int, farmaco: str, data_fine: str = None):
-        """Imposta la data di fine di una terapia (senza cancellarla)."""
-        if data_fine is None:
-            data_fine = datetime.now().strftime("%Y-%m-%d")
-        conn = sqlite3.connect(self._db_path)
-        cursor = conn.cursor()
-        try:
-            cursor.execute("UPDATE TERAPIA SET data_fine=? WHERE id_paz=? AND farmaco=? AND data_fine IS NULL", (data_fine, id_paz, farmaco))
-            conn.commit()
-            self.registra_operazione("INTERRUZIONE_TERAPIA", "TERAPIA", f"{id_paz}/{farmaco}", f"Interrotta con data_fine={data_fine}")
-        except sqlite3.Error as e:
-            print(f"ERRORE INTERRUZIONE: {e}")
         finally:
             conn.close()
         self._aggiorna_gravita_paziente(id_paz)

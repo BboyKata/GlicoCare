@@ -1,4 +1,3 @@
-# tests/conftest.py
 import pytest
 import sqlite3
 import os
@@ -37,5 +36,4 @@ def init_db(db_path):
     
     yield conn
     
-    # Chiudi la connessione dopo il test
     conn.close()

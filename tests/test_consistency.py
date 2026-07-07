@@ -1,4 +1,3 @@
-# tests/test_consistency.py
 import pytest
 from datetime import datetime, timedelta
 from src.paziente import Paziente
