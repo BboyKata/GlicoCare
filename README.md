@@ -8,22 +8,18 @@ Applicazione desktop per la gestione del diabete che permette l'interazione tra 
 > **Autori:** Il progetto è stato realizzato da Matteo Balzerani, Jessica Devescovi e Mattia Mantovani per il progetto di Ingegneria del Software, CdL Bioinformatica L-31.
 
 ## Codice sorgente
-Il progetto è stato sviluppato attraverso la tecnologia di versioning di Github. Il codice sorgente del progetto è quindi reperibile 
-
-- [online](https://github.com/BboyKata/GlicoCare "Vai alla repository")
-
-- allegato nel file `.zip` fornito
+Il progetto è stato sviluppato attraverso la tecnologia di versioning di Github. Qui allegata nel file `.zip` è fornita una versione stabile e testata, presente nella directory `CodiceSorgente` di questo archivio.
 
 ## Esecuzione
 Per poter eseguire e testare *Glicocare*, vi sono i seguenti modi elencati:
 
-1. **Esecuzione del codice compilato in eseguibile:** attraverso le *Github Actions* abbiamo creato la build automatica delle versioni pubblicate per i sistemi operativi `Windows` e `Linux`. Sono allegati i due eseguibili. 
-> Eventualmente per eseguirlo è necessario unicamente cliccare sul file eseguibile
+1. **Esecuzione del codice compilato in eseguibile:** attraverso le *Github Actions* abbiamo creato la build automatica delle versioni pubblicate per i sistemi operativi `Windows` e `Linux`. Sono allegati i due eseguibili nella directory `FileEseguibili` di questo archivio. 
+> Eventualmente per eseguirlo è necessario estrarre il file .zip del sistema operativo corrispondente ed unicamente cliccare sul file eseguibile contenuto all'interno.
 
 2. **Compilazione ed esecuzione del codice sorgente:** è possibile accedere alla cartella allegata del codice sorgente `~/Glicocare/` e compilare ed eseguire `~/Glicocare/main.py`. Per poter compilare ed eseguire è necessario rispettare le seguenti istruzioni e requirements. È necessario svolgere queste operazioni da `terminale (bash/cmd)`.
 
 ### Dipendenze
-- Python 3.12 o superiore
+- Python 3.12 o superiore (include *sqlite*)
 - flet==0.27.1
 - Pillow>=10.0.0
 - matplotlib>=3.7.0
